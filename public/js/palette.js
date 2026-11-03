@@ -1,0 +1,93 @@
+// Mọi màu trong game lấy từ đây
+
+export const PALETTE = {
+  ink: '#5C4B51',
+  inkSoft: '#8A7479',
+  cream: '#FFF8E7',
+  white: '#FFFFFF',
+  cheek: '#FF9EB5',
+  shoe: '#6E5C62',
+  hairTie: '#FFAFCC',
+  bow: '#FF8FAB',
+
+  // Quần / váy cố định theo trang phục
+  aoDaiPants: '#FFFFFF',
+  baBaPants: '#4A4048',
+  jeans: '#7F93BF',
+  slacks: '#5E5A6B',
+  jogger: '#A9A6B5',
+  denimSkirt: '#9DB4D8',
+  jersey: '#E85D5D',
+  jerseyStar: '#FFD93D',
+  jerseyShorts: '#FFFFFF',
+
+  // Phụ kiện
+  nonLa: '#F2DDA4',
+  nonLaLine: '#D9BC7C',
+  helmet: '#9ED8DB',
+  helmetVisor: '#7BBFC4',
+  cap: '#7FA7D9',
+  capBrim: '#6A92C4',
+  khanDong: '#3D3A5C',
+  khanDongLine: '#5C5884',
+
+  skyTop: '#A2D2FF',
+  skyBottom: '#FFE5EC',
+  cloud: '#FFFFFF',
+  sun: '#FFF1B8',
+  sunGlow: 'rgba(255, 241, 184, 0.35)',
+  hillFar: '#CDE8D6',
+  hillNear: '#B5DEC2',
+  grass: '#A8D8B0',
+  grassDark: '#8CC79A',
+  path: '#F3DFC1',
+  pathEdge: '#E4C9A3',
+  trunk: '#A47E6B',
+  blossom: '#FFC8DD',
+  blossomDeep: '#FFAFCC',
+  gate: '#F4A6A6',
+  gateDark: '#D98C8C',
+  sign: '#FFF1D6',
+  wood: '#C9976B',
+  woodDark: '#A97A52',
+  water: '#A8DAF0',
+  waterLight: '#D4EEFA',
+  bamboo: '#9CCB86',
+  bambooDark: '#7DB06A',
+  lotusPad: '#86C98E',
+  lotus: '#FFB3C7',
+  koi: '#FFA65C',
+  glow: 'rgba(255, 240, 160, 0.45)',
+  questGold: '#F7C948',
+  leaf: '#B8895A',
+  leafVein: '#8C6440',
+  plus: '#3FA66B',
+  minus: '#D9534F',
+  heart: '#FF8FAB',
+};
+
+export const OUTFIT_HEX = {
+  white: '#FFFFFF',
+  pink: '#FFAFCC',
+  red: '#F28B82',
+  yellow: '#FCE38A',
+  huePurple: '#B497D6',
+  jade: '#8FD3C1',
+  blue: '#A2D2FF',
+  cream: '#F3E3C3',
+};
+
+export const HAIR_HEX = {
+  black: '#2B2326',
+  darkBrown: '#4A3530',
+  chestnut: '#7A4B3A',
+  ash: '#7D7270',
+  honey: '#A0694A',
+};
+
+export const SKIN_HEX = {
+  fair: '#FFE3D3',
+  ivory: '#F8D9BF',
+  honey: '#E2B48E',
+  tan: '#C68E66',
+};

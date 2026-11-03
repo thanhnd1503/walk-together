@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#FFC8DD">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌸</text></svg>">
+  <title>Đi Dạo Cùng Nhau 🌸</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Màn hình vào phòng -->
+  <div id="join-screen" class="overlay">
+    <form id="join-form" class="card two-col">
+      <header class="area-header">
+        <h1>🌸 Đi Dạo Cùng Nhau</h1>
+        <p class="subtitle">Đồi Mây Ước đang chờ hai bạn</p>
+      </header>
+
+      <div id="join-preview" class="area-preview preview-box"></div>
+
+      <label class="area-name">Tên của bạn
+        <input id="name-input" maxlength="16" autocomplete="off" required>
+      </label>
+
+      <div id="join-options" class="area-options options"></div>
+
+      <label class="area-room">Mã phòng
+        <div class="row">
+          <input id="room-input" maxlength="8" autocomplete="off" required placeholder="VD: MAY123">
+          <button type="button" id="random-room" title="Tạo mã ngẫu nhiên">🎲</button>
+        </div>
+      </label>
+
+      <div class="area-submit">
+        <label class="solo-toggle">
+          <input type="checkbox" id="solo-input">
+          <span>🤖 Chơi 1 người <small>(có bot đi cùng, để test; tiến độ lưu riêng)</small></span>
+        </label>
+        <p id="join-error" class="error" role="alert"></p>
+        <button type="submit" class="primary">Bắt đầu đi dạo 💕</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Thay đồ khi đang đi dạo -->
+  <div id="look-screen" class="overlay" hidden>
+    <div class="card two-col">
+      <header class="area-header"><h2>👕 Thay đồ</h2></header>
+      <div id="look-preview" class="area-preview preview-box"></div>
+      <div id="look-options" class="area-options options"></div>
+      <div class="area-submit actions">
+        <button type="button" id="look-cancel">Huỷ</button>
+        <button type="button" id="look-save" class="primary">Lưu 💕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Giao diện trong game -->
+  <div id="hud" hidden>
+    <div id="top-bar">
+      <span id="status"></span>
+      <div class="top-actions">
+        <button id="copy-link" type="button">🔗 <span class="btn-label">Mời người ấy</span></button>
+        <button id="edit-look" type="button" title="Thay đồ">👕</button>
+        <button id="leave-room" type="button" title="Rời phòng">🚪</button>
+      </div>
+    </div>
+    <div id="quest-panel" aria-live="polite"></div>
+    <div id="toast" role="status"></div>
+
+    <div id="bottom-bar">
+      <button id="btn-left" class="move-btn" type="button" aria-label="Đi sang trái">◀</button>
+      <form id="chat-form">
+        <input id="chat-input" maxlength="120" autocomplete="off" placeholder="Nói gì đó…">
+        <button type="submit" aria-label="Gửi">💬</button>
+      </form>
+      <button id="btn-act" type="button" title="Tương tác (phím E)" hidden>✋</button>
+      <button id="btn-hand" type="button" title="Nắm tay (phím H)">🤝</button>
+      <button id="btn-right" class="move-btn" type="button" aria-label="Đi sang phải">▶</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

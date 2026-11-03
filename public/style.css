@@ -1,0 +1,266 @@
+:root {
+  --pink: #FFC8DD;
+  --pink-deep: #FFAFCC;
+  --blue: #BDE0FE;
+  --cream: #FFF8E7;
+  --ink: #5C4B51;
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--blue);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+button, input { font: inherit; color: inherit; }
+
+button {
+  cursor: pointer;
+  border: 2px solid var(--ink);
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 8px 14px;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+button:active { transform: scale(0.94); }
+
+input {
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  outline: none;
+  min-width: 0;
+}
+input:focus { border-color: #E07A9E; }
+
+/* ---------- Màn hình vào phòng ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(255, 248, 231, 0.35);
+  backdrop-filter: blur(3px);
+}
+
+.card {
+  width: min(380px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 28px;
+  box-shadow: 0 8px 0 rgba(92, 75, 81, 0.25);
+}
+
+.card h1 { margin: 0; text-align: center; font-size: 1.6rem; }
+.subtitle { margin: 4px 0 0; text-align: center; opacity: 0.75; }
+
+.card label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
+.card h2 { margin: 0; text-align: center; }
+.row { display: flex; gap: 8px; }
+.row input { flex: 1; text-transform: uppercase; }
+
+/* Thẻ có thể cuộn khi màn hình thấp */
+.card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+/* Trình tạo nhân vật */
+.preview-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.look-preview { cursor: pointer; border-radius: 20px; background: rgba(255, 200, 221, 0.25); }
+button.small { font-size: 0.8rem; padding: 4px 12px; }
+
+.options { display: flex; flex-direction: column; gap: 8px; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.opt-label { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+
+.swatches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.swatches button { width: 22px; height: 22px; padding: 0; border-width: 2px; }
+.swatches button.selected { transform: scale(1.15); box-shadow: 0 0 0 2px var(--cream), 0 0 0 4px var(--ink); }
+
+.gender-toggle { display: flex; gap: 8px; margin-bottom: 4px; }
+.gender-toggle button { flex: 1; font-weight: 800; }
+.gender-toggle button.selected { background: var(--pink-deep); }
+
+.cycler { display: flex; align-items: center; gap: 6px; }
+.cycler button { width: 32px; height: 32px; padding: 0; font-size: 0.75rem; }
+.cycler-name { min-width: 116px; text-align: center; font-weight: 700; font-size: 0.9rem; }
+
+.actions { display: flex; gap: 10px; }
+.actions button { flex: 1; }
+
+/* Màn hình rộng: lựa chọn nằm cột phải */
+@media (min-width: 760px) {
+  .card.two-col {
+    width: 720px;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-areas:
+      "header options"
+      "preview options"
+      "name options"
+      "room options"
+      "submit options";
+    align-content: start;
+    column-gap: 28px;
+  }
+  .area-header { grid-area: header; }
+  .card.two-col h1 { font-size: 1.4rem; white-space: nowrap; }
+  .area-preview { grid-area: preview; }
+  .area-name { grid-area: name; }
+  .area-room { grid-area: room; }
+  .area-submit { grid-area: submit; display: flex; flex-direction: column; gap: 10px; }
+  .area-options { grid-area: options; align-self: center; padding-left: 24px; border-left: 2px dashed rgba(92, 75, 81, 0.25); }
+  #look-screen .card.two-col { grid-template-areas: "header options" "preview options" "submit options"; }
+}
+
+.card label.solo-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.solo-toggle input { width: 18px; height: 18px; accent-color: #E07A9E; }
+.solo-toggle small { font-weight: 600; opacity: 0.7; }
+
+.primary { background: var(--pink-deep); font-weight: 800; padding: 12px; }
+.error { margin: 0; min-height: 1.2em; color: #C0392B; font-size: 0.9rem; text-align: center; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+
+#top-bar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+#status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(255, 248, 231, 0.9);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.top-actions { display: flex; gap: 6px; flex-shrink: 0; }
+#copy-link, #leave-room, #edit-look { font-size: 0.85rem; white-space: nowrap; }
+
+#quest-panel {
+  position: absolute;
+  top: 56px;
+  left: 10px;
+  max-width: min(320px, calc(100% - 20px));
+  background: rgba(255, 248, 231, 0.92);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.q-scene { font-weight: 800; font-size: 0.75rem; opacity: 0.75; }
+.q-title { font-weight: 800; }
+.q-hint { font-size: 0.78rem; opacity: 0.8; }
+#btn-act { background: #F7C948; font-size: 1.1rem; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.1); } }
+
+#toast {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translate(-50%, -10px);
+  width: max-content;
+  max-width: min(440px, calc(100vw - 24px));
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  padding: 8px 16px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.35;
+  box-shadow: 0 4px 0 rgba(92, 75, 81, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+#bottom-bar {
+  position: absolute;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+#chat-form { display: flex; gap: 6px; flex: 1; min-width: 0; max-width: 460px; }
+#chat-input { flex: 1; border-radius: 999px; }
+#btn-hand.active { background: var(--pink-deep); }
+
+.move-btn {
+  display: none;
+  width: 56px;
+  height: 56px;
+  font-size: 1.3rem;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.move-btn.pressed { background: var(--pink); transform: scale(0.94); }
+
+/* Thiết bị cảm ứng thì hiện nút di chuyển */
+@media (pointer: coarse) {
+  .move-btn { display: block; }
+  #bottom-bar { justify-content: space-between; }
+}
+
+/* Màn hình hẹp: thu gọn thanh nút */
+@media (max-width: 480px) {
+  /* Thông báo nằm ở khoảng trời trống dưới bảng nhiệm vụ, không che nhân vật */
+  #toast {
+    top: 30%;
+    font-size: 0.85rem;
+    padding: 7px 14px;
+  }
+  #quest-panel { font-size: 0.8rem; padding: 6px 10px; }
+  .q-hint { font-size: 0.72rem; }
+  #status, #copy-link, #leave-room, #edit-look { font-size: 0.78rem; }
+  #bottom-bar { gap: 6px; left: 8px; right: 8px; }
+  #bottom-bar button { padding: 8px 10px; }
+  #status { flex: 1; }
+  .btn-label { display: none; }
+  .move-btn { width: 50px; height: 50px; flex-shrink: 0; }
+}
