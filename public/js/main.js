@@ -133,7 +133,7 @@ const net = createNet({
   },
 });
 
-const quests = createQuests({ net, toast, panelEl: $('quest-panel'), actBtn: $('btn-act') });
+const quests = createQuests({ net, toast, panelEl: $('quest-panel'), actBtn: $('btn-act'), getSelfId: () => state.selfId });
 
 // ---------- Điều khiển ----------
 async function toggleHand() {
@@ -146,14 +146,15 @@ const input = createInput({
   chatInput,
   btnLeft: $('btn-left'),
   btnRight: $('btn-right'),
+  btnAct: $('btn-act'),
   onHand: toggleHand,
+  onActUp: () => quests.release(),
   onFocusChat: () => chatInput.focus(),
   onAct: () => state.joined && quests.interact(),
   isBlocked: () => lookScreen.isOpen(),
 });
 
 btnHand.addEventListener('click', toggleHand);
-$('btn-act').addEventListener('click', () => quests.interact());
 
 $('chat-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -259,11 +260,8 @@ function render(camX, t, now) {
 
   const me = self();
   const p = partner();
-  ctx.save();
-  ctx.translate(-camX, 0);
-  quests.draw(ctx, gy, t, me, p);
-  ctx.restore();
-  if (state.joined) quests.drawOverlay(ctx, camX, view.w, gy);
+  const inWorld = (fn) => { ctx.save(); ctx.translate(-camX, 0); fn(); ctx.restore(); };
+  inWorld(() => quests.draw(ctx, gy, t, me, p));
 
   const players = [...state.players.values()].sort((a, b) => (a.isLocal ? 1 : 0) - (b.isLocal ? 1 : 0));
   for (const pl of players) {
@@ -271,12 +269,14 @@ function render(camX, t, now) {
     const reach = state.holding && other ? (other.renderX - pl.renderX) / 2 : null;
     pl.draw(ctx, pl.renderX - camX, gy, t, reach);
   }
+  inWorld(() => quests.drawFront(ctx, gy, me, p)); // vật cầm trên tay vẽ trước mặt nhân vật
 
   if (state.holding && me && p) {
     const mid = (me.renderX + p.renderX) / 2 - camX;
     heart(ctx, mid, gy - 92 + Math.sin(t * 3) * 3, 14);
   }
 
+  if (state.joined) quests.drawOverlay(ctx, camX, view, gy, me, p);
   for (const pl of players) {
     if (pl.bubble) drawBubble(ctx, pl.bubble, pl.renderX - camX, pl.headTopY(gy), now);
   }

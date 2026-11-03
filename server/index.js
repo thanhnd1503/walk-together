@@ -14,7 +14,7 @@ import {
   handleCollect, handleInteract, checkPositions, publicQuest, savedQuest, tickQuest,
 } from './quests.js';
 import { saveProgress } from './storage.js';
-import { botOf, botReply, onHumanInteract, tickBot } from './bot.js';
+import { botOf, onHumanChat, onHumanInteract, tickBot } from './bot.js';
 
 const PORT = Number(process.env.PORT) || 3456;
 const root = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -29,11 +29,18 @@ const BOT_REPLY_MS = 900;
 const httpServer = createServer(app);
 const io = new Server(httpServer, { maxHttpBufferSize: 4096 });
 
+// Mỗi người nhận trạng thái riêng (nhiệm vụ bản vẽ: chỉ người cầm bản vẽ thấy ván tốt/mục)
+function emitQuest(room, now) {
+  for (const player of room.players.values()) {
+    if (!player.isBot) io.to(player.id).emit(EVENTS.QUEST, publicQuest(room.progress, now, player.id));
+  }
+}
+
 // Báo tiến độ mới cho cả phòng và lưu lại
 function applyQuest(room, result) {
   if (result.fx) io.to(room.code).emit(EVENTS.FX, result.fx);
   if (!result.changed) return;
-  io.to(room.code).emit(EVENTS.QUEST, publicQuest(room.progress));
+  emitQuest(room, Date.now());
   saveProgress(room.code, savedQuest(room.progress));
 }
 
@@ -62,7 +69,7 @@ io.on('connection', (socket) => {
 
     roomCode = room.code;
     socket.join(roomCode);
-    ack({ ok: true, selfId: socket.id, ...publicState(room) });
+    ack({ ok: true, selfId: socket.id, ...publicState(room, socket.id) });
     socket.to(roomCode).emit(EVENTS.STATE, publicState(room));
   });
 
@@ -88,7 +95,7 @@ io.on('connection', (socket) => {
     const p = room?.players.get(socket.id);
     if (!p) return;
     const now = Date.now();
-    applyQuest(room, handleInteract(room.progress, p, String(data?.targetId ?? ''), now));
+    applyQuest(room, handleInteract(room.progress, p, String(data?.targetId ?? ''), now, room));
     if (room.solo) onHumanInteract(room, now);
   });
 
@@ -101,7 +108,10 @@ io.on('connection', (socket) => {
     lastChatAt = now;
     io.to(roomCode).emit(EVENTS.CHAT, { id: socket.id, text });
     const bot = room.solo && botOf(room);
-    if (bot) setTimeout(() => io.to(room.code).emit(EVENTS.CHAT, { id: bot.id, text: botReply() }), BOT_REPLY_MS);
+    if (bot) {
+      const reply = onHumanChat(room, text);
+      setTimeout(() => io.to(room.code).emit(EVENTS.CHAT, { id: bot.id, text: reply }), BOT_REPLY_MS);
+    }
   });
 
   socket.on(EVENTS.LOOK, (data) => {
@@ -128,9 +138,10 @@ io.on('connection', (socket) => {
 function tickRoomBot(room, now) {
   const bot = botOf(room);
   if (!bot) return;
-  const { moved, press } = tickBot(room, QUEST_TICK_MS / 1000, now, roomMaxX(room));
+  const { moved, press, say } = tickBot(room, QUEST_TICK_MS / 1000, now, roomMaxX(room));
   if (moved) io.to(room.code).emit(EVENTS.MOVE, { id: bot.id, x: bot.x, dir: bot.dir, walking: bot.walking });
-  if (press) applyQuest(room, handleInteract(room.progress, bot, press, now));
+  if (press) applyQuest(room, handleInteract(room.progress, bot, press, now, room));
+  if (say) io.to(room.code).emit(EVENTS.CHAT, { id: bot.id, text: say });
   if (moved) applyQuest(room, checkPositions(room.progress, room, now));
 }
 
@@ -138,7 +149,7 @@ function tickRoomBot(room, now) {
 setInterval(() => {
   const now = Date.now();
   for (const room of allRooms()) {
-    if (tickQuest(room.progress, room, now)) io.to(room.code).emit(EVENTS.QUEST, publicQuest(room.progress, now));
+    if (tickQuest(room.progress, room, now)) emitQuest(room, now);
     if (room.solo) tickRoomBot(room, now);
   }
 }, QUEST_TICK_MS);

@@ -63,8 +63,8 @@ export function floaterText(ctx, f, now) {
   ctx.restore();
 }
 
-export function plankItem(ctx, x, y, t) {
-  glow(ctx, x, y, 16 + Math.sin(t * 4) * 2);
+export function plankItem(ctx, x, y, t, lit = true) {
+  if (lit) glow(ctx, x, y, 16 + Math.sin(t * 4) * 2);
   roundRect(ctx, x - 17, y - 4, 34, 9, 3, PALETTE.wood);
   ctx.beginPath();
   ctx.moveTo(x - 10, y);
@@ -156,4 +156,70 @@ export function promptBubble(ctx, x, y) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('✋', x, y);
+}
+
+// Tấm ván dài đang khiêng (hoặc nằm chờ trên đất); warn = khoảng cách sắp quá giới hạn
+export function longPlank(ctx, x1, x2, y, warn) {
+  const [a, b] = x1 < x2 ? [x1, x2] : [x2, x1];
+  roundRect(ctx, a, y - 5, b - a, 10, 3, warn ? PALETTE.minus : PALETTE.wood);
+  ctx.strokeStyle = PALETTE.woodDark;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(a + 8, y);
+  ctx.lineTo(b - 8, y);
+  ctx.stroke();
+}
+
+// Chỗ giữ ván: đầu ván thò ra bờ; active = đang có người giữ
+export function holdMark(ctx, x, groundY, active, t) {
+  const wobble = active ? 0 : Math.sin(t * 9) * 0.06; // không ai giữ thì ván lắc
+  ctx.save();
+  ctx.translate(x + 20, groundY - 4);
+  ctx.rotate(wobble);
+  roundRect(ctx, -26, -5, 52, 10, 3, active ? PALETTE.woodLight : PALETTE.wood);
+  ctx.restore();
+  if (active) glow(ctx, x, groundY - 14, 18);
+}
+
+// Cuộn lạt tre ở chỗ buộc
+export function ropeCoil(ctx, x, groundY) {
+  for (const r of [9, 6, 3]) {
+    ctx.beginPath();
+    ctx.ellipse(x - 14, groundY - 8, r + 3, r, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = PALETTE.bambooDark;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+}
+
+// Thanh canh nhịp buộc lạt: vùng xanh + kim chạy; active = đang có người giữ ván
+export function tieBar(ctx, x, y, needle, zone, active, knots, goal) {
+  const w = 110;
+  const left = x - w / 2;
+  ctx.save();
+  if (!active) ctx.globalAlpha = 0.45;
+  roundRect(ctx, left, y - 8, w, 16, 8, PALETTE.cream);
+  roundRect(ctx, left + w * zone[0], y - 8, w * (zone[1] - zone[0]), 16, 4, PALETTE.plus, null);
+  roundRect(ctx, left, y - 8, w, 16, 8, null);
+  const nx = left + w * needle;
+  ctx.beginPath();
+  ctx.moveTo(nx, y + 4);
+  ctx.lineTo(nx - 6, y - 14);
+  ctx.lineTo(nx + 6, y - 14);
+  ctx.closePath();
+  ctx.fillStyle = PALETTE.ink;
+  ctx.fill();
+  ctx.restore();
+  // Số nút đã buộc
+  for (let i = 0; i < goal; i++) {
+    circle(ctx, left + 14 + i * 16, y + 18, 5, i < knots ? PALETTE.bambooDark : PALETTE.cream, PALETTE.ink, 1.5);
+  }
+  if (!active) {
+    roundRect(ctx, x - 52, y - 31, 104, 18, 9, PALETTE.cream, null);
+    ctx.fillStyle = PALETTE.ink;
+    ctx.font = '800 10px Nunito, "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Cần người giữ ván!', x, y - 22);
+  }
 }

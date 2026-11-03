@@ -47,8 +47,11 @@ Walk online/
 │       ├── character-head.js # Tóc, mặt, phụ kiện của nhân vật
 │       ├── customize.js  # Trình tạo nhân vật: xem trước + lựa chọn
 │       ├── world.js      # Nền chung (trời, đồi, đường) + gọi vẽ từng cảnh
-│       ├── scenes/       # Mỗi cảnh một file: gate.js (Cổng Hoa Đào), bridge.js (Cầu Gỗ Nhỏ)
-│       ├── quests.js     # Nhiệm vụ phía client: vật phẩm, chuông, cọc, bảng nhiệm vụ
+│       ├── scenes/       # Mỗi cảnh một file: gate.js (Cổng Hoa Đào), bridge.js (Cầu Tình Yêu)
+│       ├── quests.js     # Nhiệm vụ phía client: trạng thái, tương tác, bảng nhiệm vụ
+│       ├── quest-view.js # Vẽ theo kiểu nhiệm vụ (vật rơi, khiêng ván, buộc lạt, mũi tên mép)
+│       ├── quest-draw.js # Hàm vẽ vật thể nhiệm vụ (cánh hoa, chuông, ván, búa…)
+│       ├── blueprint-map.js # Bản vẽ thu nhỏ cho người cầm bản vẽ
 │       ├── screens.js    # Màn hình vào phòng + bảng thay đồ
 │       ├── draw.js       # Hàm vẽ dùng chung (bo góc, mây, hoa…)
 │       ├── palette.js    # Bảng màu — mọi màu lấy từ đây
@@ -95,10 +98,10 @@ Sự kiện chính:
 | `player:look` | C ↔ S | `{ look }` (thay đồ khi đang chơi) |
 | `player:emote` | C ↔ S | `{ type }` |
 | `hand:toggle` | C ↔ S | `{ holding }` |
-| `quest:state` | S → C | `{ index, count, items: [{ id, x, kind?, age? }] }` (cũng có trong ack của `room:join`) |
+| `quest:state` | S → C | `{ index, count, seerId, items: [{ id, x, kind?, age? }], plank: { x, carriers }, tie?: { holder, sweepAge } }` — gửi riêng từng người |
 | `quest:collect` | C → S | `{ itemId }` |
-| `quest:interact` | C → S | `{ targetId }` |
-| `quest:fx` | S → C | `{ targetId, by }` rung chuông, hoặc `{ type: 'catch', by, kind, x }` hiện +1/−1 |
+| `quest:interact` | C → S | `{ targetId }` — mục tiêu cố định (`bellA`), vật `item:<id>`, `plank`, hoặc buộc lạt `holdOn`/`holdOff`/`tie` |
+| `quest:fx` | S → C | `{ targetId, by }` rung chuông · `{ type: 'catch', by, kind, x }` +1/−1 · `lift`/`liftFail`/`lifted`/`drop`/`deliver` khiêng ván · `{ type: 'hold', by }` · `{ type: 'tie', ok, reason?, x }` |
 
 Mất kết nối thì client **tự kết nối lại** và vào lại phòng cũ, không làm người chơi mất trạng thái.
 
@@ -116,7 +119,7 @@ Mất kết nối thì client **tự kết nối lại** và vào lại phòng c
 Một con đường dạo **cuộn ngang** dài khoảng 3–4 màn hình, đi qua lần lượt:
 
 1. **Cổng Hoa Đào**: điểm xuất phát, hàng cây anh đào rơi cánh hoa.
-2. **Cầu Gỗ Nhỏ**: bắc qua dòng suối có cá koi.
+2. **Cầu Tình Yêu**: bắc qua dòng suối có sen và cá koi; sửa xong thì lan can treo trái tim và ổ khoá tình yêu.
 3. **Hồ Đom Đóm**: buổi tối có đom đóm bay, có **ghế đá** để ngồi cùng nhau.
 4. **Cánh Đồng Hoa Gió**: hoa đung đưa, chong chóng giấy quay.
 5. **Ngọn Hải Đăng Trên Đồi**: điểm cuối, nhìn ra biển và hoàng hôn.
@@ -138,14 +141,17 @@ Làm **theo thứ tự**, xong và kiểm tra giai đoạn trước mới sang g
   - **Tạo hình người Việt** là định hướng chính: áo dài, áo bà ba, nón lá, khăn đóng, mũ bảo hiểm, áo đội tuyển; màu tóc tông đen/nâu; màu da trắng hồng → ngăm.
   - `LOOK_OPTIONS` (shared) chia `common` / `female` / `male`. Đổi giới tính: lựa chọn nào không hợp sẽ về mặc định (`sanitizeLook`), lựa chọn dùng chung được giữ.
   - Thêm lựa chọn mới: thêm giá trị vào `LOOK_OPTIONS`, màu vào `palette.js`, nhãn tiếng Việt trong `customize.js`, cách vẽ trong `character.js` (thân, trang phục) hoặc `character-head.js` (tóc, mặt, phụ kiện).
-- **Nhiệm vụ hợp tác** ✅ (cảnh 1–2): làm lần lượt; xong nhiệm vụ mở chắn đường thì mới đi tiếp. Tiến độ lưu theo mã phòng.
-  - Kiểu nhiệm vụ: `catch` (hứng vật rơi: đồ tốt +1, đồ xấu −1, điểm không âm), `collect` (nhặt chung ở vị trí cố định), `sync` (bấm cùng lúc ở 2 chỗ), `plates` (cùng đứng đủ giây), `holdWalk` (nắm tay đi tới đích).
+- **Nhiệm vụ hợp tác** ✅ (cảnh 1 Cổng Hoa Đào: hứng hoa → chuông gió · cảnh 2 Cầu Tình Yêu: lấy gỗ tốt → khiêng ván → buộc lạt tre → nắm tay qua cầu): làm lần lượt; xong nhiệm vụ mở chắn đường thì mới đi tiếp. Tiến độ lưu theo mã phòng.
+  - Kiểu nhiệm vụ: `catch` (hứng vật rơi: đồ tốt +1, đồ xấu −1, điểm không âm; hiện 20% tốt), `blueprint` (ván rải ngẫu nhiên giữa các mốc 🪨🏮🏺; người cầm bản vẽ xem bản vẽ thu nhỏ ở bảng gỗ rồi **nhắn tin** chỉ, chỉ người kia mới nhặt được), `carry` (hai người đứng hai bên ván ✋ cùng lúc để nâng, giữ khoảng cách `minGap`–`maxGap` khi đi, ra tới `deliverX` là giao), `tie` (một người **nhấn giữ** ✋ ở chỗ giữ ván — `holdOn`/`holdOff`; người kia bấm `tie` khi kim `tieNeedle` trong vùng `zone`; trượt hoặc không ai giữ thì −1; mỗi nút buộc kim nhanh thêm `speedUp`), `sync` (bấm cùng lúc ở 2 chỗ), `holdWalk` (nắm tay đi tới đích). `plates`/`collect` hiện chưa dùng nhưng vẫn giữ trong engine.
+  - **Thông tin bí mật** (bản vẽ): server gửi `quest:state` riêng cho từng người (`emitQuest`), chỉ người cầm bản vẽ (`seerId`) nhận `kind` của ván. Không bao giờ broadcast chung cho cả phòng.
+  - Server chỉ gửi trường công khai của người chơi (`publicState`): không lộ `clientId` hay trạng thái nội bộ của bot.
   - Vật rơi do server thả theo nhịp (`tickQuest`, 100ms) quanh vị trí hai người; gửi kèm `age` để client tự tính độ cao, không phụ thuộc đồng hồ server.
   - Server kiểm tra khoảng cách và thời gian; client không tự quyết hoàn thành. Server kẹp vị trí không cho vượt chắn đường.
   - Thêm nhiệm vụ/cảnh mới: khai báo trong `shared/quests.js` (SCENES, QUESTS, BARRIERS), vẽ cảnh trong `public/js/scenes/`, vẽ vật thể nhiệm vụ trong `public/js/quests.js`. Kiểu nhiệm vụ mới thì thêm logic ở `server/quests.js`.
   - Kiểm thử: chạy server với `DATA_DIR=<thư mục tạm>` để không ghi đè tiến độ thật.
 - **Chế độ 1 người (để test)** ✅: tích "🤖 Chơi 1 người" ở màn hình vào phòng. Server thêm một bot vào phòng, mã nội bộ `SOLO-<mã>` nên **tiến độ tách riêng** khỏi phòng thật cùng mã.
-  - Bot đi theo người chơi; ở `sync`/`plates` khi người chơi tới gần một mục tiêu (≤ 250) thì bot sang mục tiêu còn lại, rung chuông theo sau ~0,3s; nắm tay được; trả lời chat. Bot không hứng/nhặt giùm.
+  - Bot đi theo người chơi; ở `sync`/`plates` khi người chơi tới gần một mục tiêu (≤ 250) thì bot sang mục tiêu còn lại, rung chuông theo sau ~0,3s; nắm tay được; trả lời chat. Bot không hứng hoa giùm.
+  - `blueprint`: bot cầm bản vẽ thì đứng ở bảng gỗ và nhắn "Tấm thứ N bên trái/phải <mốc>" (`describePlank`); người chơi cầm bản vẽ thì bot hiểu tin nhắn dạng "đèn lồng phải 2" (`findPlank`, so từ khoá không dấu). `carry`: bot sang đầu ván bên kia, nâng theo, giữ cách 80 khi khiêng. `tie`: bot sang chỗ còn lại; ở chỗ giữ thì giữ ván, ở chỗ buộc thì canh kim vào giữa vùng xanh rồi buộc.
   - Bot chạy trong nhịp 100ms của server (`tickRoomBot`), đi qua đúng logic nhiệm vụ như người thật. Người chơi rời phòng thì phòng đóng luôn.
   - Thêm kiểu nhiệm vụ mới cần 2 người thì nhớ dạy bot cách phối hợp trong `server/bot.js`.
 - **Giai đoạn 2 (Không khí)**: đủ 5 cảnh của Đồi Mây Ước, parallax, trời theo giờ thật, emote, đồng hồ "đã đi cùng nhau X phút", nhạc nền (có nút tắt).
@@ -172,6 +178,8 @@ Cập nhật các ô `[ ]` → `[x]` trong file này khi hoàn thành.
 - Tên biến, hàm, file bằng **tiếng Anh** (`camelCase`, file `kebab-case` hoặc một từ). Comment ngắn bằng **tiếng Việt**, chỉ khi cần giải thích *tại sao*.
 - Không dùng số "ma thuật": đưa vào `shared/constants.js` hoặc `palette.js`.
 - Vòng lặp game dùng `requestAnimationFrame` + `deltaTime`, **không phụ thuộc FPS**.
+- Nút ✋ hỗ trợ **nhấn giữ** (pointerdown = tương tác, pointerup = `quests.release()`); phím E tương tự với keydown/keyup.
+- Toàn trang tắt bôi đen chữ và menu nhấn giữ (`user-select: none`, `-webkit-touch-callout: none`), chỉ `input` được chọn chữ.
 - Canvas phải nét trên màn hình retina (nhân `devicePixelRatio`) và co giãn theo cửa sổ.
 - **Bảo mật cơ bản**: không bao giờ chèn chat vào DOM bằng `innerHTML`; server giới hạn độ dài và tần suất tin nhắn; mã phòng chỉ gồm chữ và số.
 - Không để lại `console.log` debug khi hoàn thành tính năng.

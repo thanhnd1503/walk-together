@@ -3,7 +3,7 @@
 const LEFT_KEYS = new Set(['ArrowLeft', 'a', 'A']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'd', 'D']);
 
-export function createInput({ chatInput, btnLeft, btnRight, onHand, onAct, onFocusChat, isBlocked }) {
+export function createInput({ chatInput, btnLeft, btnRight, btnAct, onHand, onAct, onActUp, onFocusChat, isBlocked }) {
   const held = { left: false, right: false };
   const touch = { left: false, right: false };
 
@@ -29,11 +29,22 @@ export function createInput({ chatInput, btnLeft, btnRight, onHand, onAct, onFoc
   window.addEventListener('keyup', (e) => {
     if (LEFT_KEYS.has(e.key)) held.left = false;
     if (RIGHT_KEYS.has(e.key)) held.right = false;
+    if (e.key === 'e' || e.key === 'E' || e.key === ' ') onActUp();
   });
+
+  // Nút ✋: bấm là tương tác, nhấn giữ là giữ (vd: giữ ván), thả tay là buông
+  btnAct.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    btnAct.setPointerCapture?.(e.pointerId);
+    onAct();
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btnAct.addEventListener(ev, onActUp);
+  btnAct.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Mất focus cửa sổ thì thả hết phím, tránh nhân vật tự đi mãi
   window.addEventListener('blur', () => {
     held.left = held.right = touch.left = touch.right = false;
+    onActUp();
     btnLeft.classList.remove('pressed');
     btnRight.classList.remove('pressed');
   });

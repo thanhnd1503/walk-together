@@ -40,7 +40,7 @@ function woodenGate(ctx, x, groundY, open) {
     // Hai cánh cổng mở sang hai bên
     roundRect(ctx, x - 52, groundY - h + 6, 10, h - 8, 3, PALETTE.wood);
     roundRect(ctx, x + 42, groundY - h + 6, 10, h - 8, 3, PALETTE.wood);
-    signpost(ctx, x + 90, groundY - 6, ['Cầu Gỗ Nhỏ →'], 100);
+    signpost(ctx, x + 90, groundY - 6, ['Cầu Tình Yêu →'], 100);
     return;
   }
   for (let i = 0; i < 6; i++) {

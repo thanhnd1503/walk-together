@@ -19,6 +19,17 @@ html, body {
   background: var(--blue);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* Nhấn giữ nút trên điện thoại không bôi đen chữ, không hiện menu sao chép/lưu ảnh */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Ô nhập vẫn chọn/sao chép chữ được */
+input {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #game {
@@ -235,8 +246,6 @@ button.small { font-size: 0.8rem; padding: 4px 12px; }
   width: 56px;
   height: 56px;
   font-size: 1.3rem;
-  user-select: none;
-  -webkit-user-select: none;
   touch-action: none;
 }
 .move-btn.pressed { background: var(--pink); transform: scale(0.94); }

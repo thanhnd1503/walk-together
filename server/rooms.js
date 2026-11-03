@@ -21,8 +21,10 @@ export function getRoom(code) {
   return rooms.get(code);
 }
 
-export function publicState(room) {
-  return { players: [...room.players.values()], holding: room.holding, quest: publicQuest(room.progress) };
+// Chỉ gửi các trường công khai (không lộ clientId hay trạng thái nội bộ của bot)
+export function publicState(room, viewerId = null) {
+  const players = [...room.players.values()].map(({ id, name, look, x, dir, walking }) => ({ id, name, look, x, dir, walking }));
+  return { players, holding: room.holding, quest: publicQuest(room.progress, Date.now(), viewerId) };
 }
 
 // Trả về { room, player, replacedId } hoặc { error }
