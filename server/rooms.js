@@ -41,7 +41,7 @@ export function joinRoom(socketId, data) {
 
   let room = rooms.get(code);
   if (!room) {
-    room = { code, solo, players: new Map(), holding: false, progress: createProgress(loadProgress(code)) };
+    room = { code, solo, players: new Map(), holding: false, progress: createProgress(loadProgress(code), data?.level) };
     rooms.set(code, room);
   }
 

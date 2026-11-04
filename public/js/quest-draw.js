@@ -8,20 +8,22 @@ function glow(ctx, x, y, r) {
   circle(ctx, x, y, r, PALETTE.glow, null);
 }
 
-export function petalItem(ctx, x, y, t) {
-  glow(ctx, x, y, 13 + Math.sin(t * 4) * 2);
+// gold = cánh hoa vàng +3
+export function petalItem(ctx, x, y, t, gold = false) {
+  glow(ctx, x, y, (gold ? 18 : 13) + Math.sin(t * 4) * 2);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(Math.sin(t * 2) * 0.4);
   ctx.beginPath();
   ctx.ellipse(0, 0, 7, 4.5, 0.5, 0, Math.PI * 2);
-  ctx.fillStyle = PALETTE.blossomDeep;
+  ctx.fillStyle = gold ? PALETTE.questGold : PALETTE.blossomDeep;
   ctx.fill();
   ctx.strokeStyle = PALETTE.ink;
   ctx.lineWidth = 1.8;
   ctx.stroke();
   ctx.restore();
   circle(ctx, x + 8, y - 8, 1.6 + Math.sin(t * 6) * 0.6, PALETTE.white, null);
+  if (gold) circle(ctx, x - 8, y + 7, 1.8 + Math.cos(t * 6) * 0.6, PALETTE.white, null);
 }
 
 // Lá khô: hứng phải bị trừ điểm

@@ -1,6 +1,6 @@
 // Hằng số dùng chung cho client và server
 
-export const WORLD_WIDTH = 4400;
+export const WORLD_WIDTH = 8100;
 
 export const WALK_SPEED = 130; // px/giây
 export const SEND_RATE = 15; // lần/giây

@@ -13,7 +13,7 @@ import {
 import {
   handleCollect, handleInteract, checkPositions, publicQuest, savedQuest, tickQuest,
 } from './quests.js';
-import { saveProgress } from './storage.js';
+import { addPhoto, saveProgress } from './storage.js';
 import { botOf, onHumanChat, onHumanInteract, tickBot } from './bot.js';
 
 const PORT = Number(process.env.PORT) || 3456;
@@ -38,6 +38,15 @@ function emitQuest(room, now) {
 
 // Báo tiến độ mới cho cả phòng và lưu lại
 function applyQuest(room, result) {
+  // Đưa người chơi về vạch: gửi MOVE cho cả phòng, kể cả chính người đó (client coi là dịch chuyển)
+  for (const { id, x } of result.teleport ?? []) {
+    const pl = room.players.get(id);
+    if (!pl) continue;
+    pl.x = x;
+    pl.walking = false;
+    io.to(room.code).emit(EVENTS.MOVE, { id, x, dir: pl.dir, walking: false });
+  }
+  if (result.photo) addPhoto(room.code, result.photo);
   if (result.fx) io.to(room.code).emit(EVENTS.FX, result.fx);
   if (!result.changed) return;
   emitQuest(room, Date.now());
@@ -95,8 +104,9 @@ io.on('connection', (socket) => {
     const p = room?.players.get(socket.id);
     if (!p) return;
     const now = Date.now();
-    applyQuest(room, handleInteract(room.progress, p, String(data?.targetId ?? ''), now, room));
-    if (room.solo) onHumanInteract(room, now);
+    const targetId = String(data?.targetId ?? '');
+    applyQuest(room, handleInteract(room.progress, p, targetId, now, room));
+    if (room.solo) onHumanInteract(room, now, targetId);
   });
 
   socket.on(EVENTS.CHAT, (data) => {
@@ -149,7 +159,7 @@ function tickRoomBot(room, now) {
 setInterval(() => {
   const now = Date.now();
   for (const room of allRooms()) {
-    if (tickQuest(room.progress, room, now)) emitQuest(room, now);
+    applyQuest(room, tickQuest(room.progress, room, now, QUEST_TICK_MS));
     if (room.solo) tickRoomBot(room, now);
   }
 }, QUEST_TICK_MS);

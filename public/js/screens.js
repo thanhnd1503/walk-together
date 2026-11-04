@@ -1,5 +1,6 @@
 // Màn hình vào phòng và bảng thay đồ
 import { ROOM_CODE_PATTERN, sanitizeLook } from '/shared/constants.js';
+import { sanitizeLevel } from '/shared/quests.js';
 import { createEditor } from './customize.js';
 import { toast } from './ui.js';
 
@@ -45,6 +46,18 @@ export function setupJoinScreen({ net, onJoined }) {
     roomInput.value = randomRoomCode();
   });
 
+  // Độ khó (server chỉ dùng khi phòng mới được tạo)
+  let level = sanitizeLevel(prefs.level);
+  const levelPicker = $('level-picker');
+  const refreshLevel = () => {
+    for (const b of levelPicker.children) b.classList.toggle('selected', b.dataset.level === level);
+  };
+  levelPicker.addEventListener('click', (e) => {
+    if (e.target.dataset.level) level = e.target.dataset.level;
+    refreshLevel();
+  });
+  refreshLevel();
+
   $('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = nameInput.value.trim();
@@ -59,14 +72,14 @@ export function setupJoinScreen({ net, onJoined }) {
 
     const look = editor.getLook();
     const solo = $('solo-input').checked;
-    const res = await net.join({ roomCode, name, look, solo, clientId: getClientId() });
+    const res = await net.join({ roomCode, name, look, solo, level, clientId: getClientId() });
     if (submitBtn) submitBtn.disabled = false;
     if (!res.ok) {
       errorEl.textContent = res.error;
       return;
     }
 
-    savePrefs({ name, room: roomCode, look });
+    savePrefs({ name, room: roomCode, look, level });
     history.replaceState(null, '', `?room=${roomCode}`);
     $('join-screen').hidden = true;
     $('hud').hidden = false;

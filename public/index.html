@@ -27,12 +27,22 @@
 
       <div id="join-options" class="area-options options"></div>
 
-      <label class="area-room">Mã phòng
-        <div class="row">
-          <input id="room-input" maxlength="8" autocomplete="off" required placeholder="VD: MAY123">
-          <button type="button" id="random-room" title="Tạo mã ngẫu nhiên">🎲</button>
+      <div class="area-room room-field">
+        <label>Mã phòng
+          <div class="row">
+            <input id="room-input" maxlength="8" autocomplete="off" required placeholder="VD: MAY123">
+            <button type="button" id="random-room" title="Tạo mã ngẫu nhiên">🎲</button>
+          </div>
+        </label>
+        <div class="field">
+          <span>Độ khó <small>(áp dụng khi tạo phòng mới)</small></span>
+          <div id="level-picker" class="choices">
+            <button type="button" data-level="easy">🌱 Dễ</button>
+            <button type="button" data-level="normal">🌸 Thường</button>
+            <button type="button" data-level="hard">🔥 Khó</button>
+          </div>
         </div>
-      </label>
+      </div>
 
       <div class="area-submit">
         <label class="solo-toggle">
@@ -69,6 +79,13 @@
       </div>
     </div>
     <div id="quest-panel" aria-live="polite"></div>
+    <!-- Bịt mắt bắt dê: nút ra hiệu nhanh cho người dẫn đường -->
+    <div id="signal-bar" hidden>
+      <button type="button" data-sig="sig:left">⬅️<span>Trái</span></button>
+      <button type="button" data-sig="sig:stop">✋<span>Dừng</span></button>
+      <button type="button" data-sig="sig:grab">🐐<span>Bắt!</span></button>
+      <button type="button" data-sig="sig:right">➡️<span>Phải</span></button>
+    </div>
     <div id="toast" role="status"></div>
 
     <div id="bottom-bar">

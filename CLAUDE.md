@@ -32,9 +32,16 @@ Walk online/
 ├── server/
 │   ├── index.js          # Khởi động Express + Socket.IO
 │   ├── rooms.js          # Quản lý phòng (tạo, vào, rời, tối đa 2 người)
-│   ├── quests.js         # Logic nhiệm vụ (server là trọng tài)
+│   ├── quests.js         # Logic nhiệm vụ chung (server là trọng tài), chia việc cho 2 file dưới
+│   ├── challenges.js     # Thử thách Cổng Hoa Đào: người gỗ, né lá, ca dao, chụp ảnh (+ chia việc cho folk-games)
+│   ├── folk-games.js     # Trò dân gian: lật thẻ hoa, kéo co (+ chia việc cho 2 file dưới)
+│   ├── folk-goat.js      # Bịt mắt bắt dê (dê thật + dê bù nhìn, dê giật mình, nút ra hiệu)
+│   ├── folk-nemcon.js    # Ném còn (lấy lực / hô ném, gió, vòng nhanh dần)
+│   ├── challenge-utils.js # Hàm chung cho thử thách (nắm tay, đứng ở vạch, chia vai…)
+│   ├── bridge-quests.js  # Nhiệm vụ Cầu Tình Yêu: lấy gỗ, khiêng ván, buộc lạt
 │   ├── bot.js            # Bot cho chế độ 1 người (đi theo, phối hợp nhiệm vụ)
-│   └── storage.js        # Lưu tiến độ vào data/progress.json (DATA_DIR để đổi thư mục)
+│   ├── bot-folk.js       # Bot chơi trò dân gian (làm theo / ra lệnh bằng tin nhắn)
+│   └── storage.js        # data/progress.json (tiến độ) + data/memories.json (ảnh kỷ niệm); DATA_DIR để đổi thư mục
 ├── public/
 │   ├── index.html        # Màn hình vào phòng + canvas
 │   ├── style.css
@@ -52,6 +59,11 @@ Walk online/
 │       ├── quest-view.js # Vẽ theo kiểu nhiệm vụ (vật rơi, khiêng ván, buộc lạt, mũi tên mép)
 │       ├── quest-draw.js # Hàm vẽ vật thể nhiệm vụ (cánh hoa, chuông, ván, búa…)
 │       ├── blueprint-map.js # Bản vẽ thu nhỏ cho người cầm bản vẽ
+│       ├── challenge-client.js # Client của thử thách Cổng Hoa Đào (bảng nhiệm vụ, tương tác, thông báo)
+│       ├── challenge-view.js   # Vẽ thử thách Cổng Hoa Đào + lớp phủ (cây hô, ảnh polaroid)
+│       ├── challenge-draw.js   # Hình vẽ: vạch, cây đào già, đèn lồng chữ, khung ảnh, polaroid
+│       ├── folk-view.js        # Vẽ trò dân gian + lớp phủ (màn hình bịt mắt, thanh lực, "DÔ!")
+│       ├── folk-draw.js        # Hình vẽ: dê, khăn bịt mắt, cột còn, thẻ hoa, dây kéo co, bù nhìn
 │       ├── screens.js    # Màn hình vào phòng + bảng thay đồ
 │       ├── draw.js       # Hàm vẽ dùng chung (bo góc, mây, hoa…)
 │       ├── palette.js    # Bảng màu — mọi màu lấy từ đây
@@ -98,10 +110,10 @@ Sự kiện chính:
 | `player:look` | C ↔ S | `{ look }` (thay đồ khi đang chơi) |
 | `player:emote` | C ↔ S | `{ type }` |
 | `hand:toggle` | C ↔ S | `{ holding }` |
-| `quest:state` | S → C | `{ index, count, seerId, items: [{ id, x, kind?, age? }], plank: { x, carriers }, tie?: { holder, sweepAge } }` — gửi riêng từng người |
+| `quest:state` | S → C | `{ index, count, seerId, items: [{ id, x, kind?, age? }], plank: { x, carriers }, tie?: { holder, sweepAge }, ch?: {…trạng thái thử thách} }` — gửi riêng từng người |
 | `quest:collect` | C → S | `{ itemId }` |
 | `quest:interact` | C → S | `{ targetId }` — mục tiêu cố định (`bellA`), vật `item:<id>`, `plank`, hoặc buộc lạt `holdOn`/`holdOff`/`tie` |
-| `quest:fx` | S → C | `{ targetId, by }` rung chuông · `{ type: 'catch', by, kind, x }` +1/−1 · `lift`/`liftFail`/`lifted`/`drop`/`deliver` khiêng ván · `{ type: 'hold', by }` · `{ type: 'tie', ok, reason?, x }` |
+| `quest:fx` | S → C | thử thách mới: `start`/`fail` (reason `moved`/`drop`/`leaf`) · `turn` · `lantern` · `photoWait`/`photoFail`/`photo` · `{ targetId, by }` rung chuông · `{ type: 'catch', by, kind, x }` +1/−1 · `lift`/`liftFail`/`lifted`/`drop`/`deliver` khiêng ván · `{ type: 'hold', by }` · `{ type: 'tie', ok, reason?, x }` |
 
 Mất kết nối thì client **tự kết nối lại** và vào lại phòng cũ, không làm người chơi mất trạng thái.
 
@@ -141,8 +153,17 @@ Làm **theo thứ tự**, xong và kiểm tra giai đoạn trước mới sang g
   - **Tạo hình người Việt** là định hướng chính: áo dài, áo bà ba, nón lá, khăn đóng, mũ bảo hiểm, áo đội tuyển; màu tóc tông đen/nâu; màu da trắng hồng → ngăm.
   - `LOOK_OPTIONS` (shared) chia `common` / `female` / `male`. Đổi giới tính: lựa chọn nào không hợp sẽ về mặc định (`sanitizeLook`), lựa chọn dùng chung được giữ.
   - Thêm lựa chọn mới: thêm giá trị vào `LOOK_OPTIONS`, màu vào `palette.js`, nhãn tiếng Việt trong `customize.js`, cách vẽ trong `character.js` (thân, trang phục) hoặc `character-head.js` (tóc, mặt, phụ kiện).
-- **Nhiệm vụ hợp tác** ✅ (cảnh 1 Cổng Hoa Đào: hứng hoa → chuông gió · cảnh 2 Cầu Tình Yêu: lấy gỗ tốt → khiêng ván → buộc lạt tre → nắm tay qua cầu): làm lần lượt; xong nhiệm vụ mở chắn đường thì mới đi tiếp. Tiến độ lưu theo mã phòng.
-  - Kiểu nhiệm vụ: `catch` (hứng vật rơi: đồ tốt +1, đồ xấu −1, điểm không âm; hiện 20% tốt), `blueprint` (ván rải ngẫu nhiên giữa các mốc 🪨🏮🏺; người cầm bản vẽ xem bản vẽ thu nhỏ ở bảng gỗ rồi **nhắn tin** chỉ, chỉ người kia mới nhặt được), `carry` (hai người đứng hai bên ván ✋ cùng lúc để nâng, giữ khoảng cách `minGap`–`maxGap` khi đi, ra tới `deliverX` là giao), `tie` (một người **nhấn giữ** ✋ ở chỗ giữ ván — `holdOn`/`holdOff`; người kia bấm `tie` khi kim `tieNeedle` trong vùng `zone`; trượt hoặc không ai giữ thì −1; mỗi nút buộc kim nhanh thêm `speedUp`), `sync` (bấm cùng lúc ở 2 chỗ), `holdWalk` (nắm tay đi tới đích). `plates`/`collect` hiện chưa dùng nhưng vẫn giữ trong engine.
+- **Nhiệm vụ hợp tác** ✅
+  - Cảnh 1 Cổng Hoa Đào (0–6100), 10 thử thách: hứng hoa → một hai ba đứng im → nắm tay né lá → bịt mắt bắt dê → chuông gió → ném còn → lật thẻ hoa → kéo co → ghép ca dao → chụp ảnh kỷ niệm.
+  - Thử thách nắm tay chưa bắt đầu thì hiện **bảng "Cách bắt đầu"** có ô tích (nắm tay, đứng ở vạch). Kéo co: chữ "DÔ!", thanh kéo và thông báo hiện ngay trên đầu nhân vật — không dùng `toast` vì trên điện thoại toast nằm đúng chỗ đó.
+  - Né lá: lá chỉ rơi trong đoạn [startX, endX] phía trước hai người, gần đích thì thả thưa đi để mật độ đều.
+  - Cảnh 2 Cầu Tình Yêu (6100–8100): lấy gỗ tốt → khiêng ván → buộc lạt tre → nắm tay qua cầu. Toạ độ cảnh 2 viết theo `BRIDGE + offset` trong `shared/quests.js`.
+  - **Độ khó** 🌱 Dễ / 🌸 Thường / 🔥 Khó: người tạo phòng chọn (`room:join` gửi `level`), lưu cùng tiến độ; người vào sau dùng độ khó của phòng. Mỗi nhiệm vụ khai báo `levels: { easy, hard }` ghi đè thông số gốc (= Thường). **Luôn lấy định nghĩa qua `questAt(index, level)` / `questOf(progress)`**, không đọc `QUESTS[i]` trực tiếp khi cần thông số.
+  - **Bẫy ở Cổng Hoa Đào** (Thường nhẹ, Khó dày, Dễ không có): hứng hoa có hoa vàng +3 rơi nhanh và gió (`vx`, vị trí qua `fallX`); người gỗ hô thiếu "ba" (`fakeChance`) và nhanh dần gần đích (`rush`); né lá có chùm 3 lá và rơi nhanh dần; bắt dê có dê giật mình (`fleeRadius`) và dê bù nhìn (`decoys`, chộp nhầm −1); ném còn có gió lệch điểm hô (`wind`, chỉ người hô thấy) và vòng nhanh dần sau mỗi lần lọt; lật thẻ thêm cặp và xáo lại khi sai quá `maxMisses`; kéo co có "DỐ!" giả (`cueFake`) và nhịp nhanh dần; ca dao có chữ mồi gần giống (`SIMILAR_WORDS`).
+  - **Thử thách nắm tay** (`hand: true` — statue, leafWalk, tug): không tự kéo nhau (`quests.handChallenge()`), cách nhau > `HAND_DROP_GAP` (90) hoặc buông tay là rớt tay. statue/leafWalk: thua thì server **đưa cả hai về vạch** (gửi `player:move` cho chính người đó = dịch chuyển), chờ 1,5s mới bắt đầu lại; bắt đầu khi nắm tay và cả hai trong 90 quanh vạch.
+  - **Lưu tiến độ theo tên nhiệm vụ** (`questId`), không theo số thứ tự; bản lưu cũ chỉ có `index` được đổi qua `LEGACY_ORDER` (`savedIndex`). Vào phòng thì xuất hiện ở `spawnX` của nhiệm vụ đang làm (nếu có).
+  - Ảnh chụp ở thử thách `photo` lưu vào `data/memories.json` theo phòng (`addPhoto`); album xem lại chưa làm.: làm lần lượt; xong nhiệm vụ mở chắn đường thì mới đi tiếp. Tiến độ lưu theo mã phòng.
+  - Kiểu nhiệm vụ: `catch` (hứng vật rơi: đồ tốt +1, đồ xấu −1, điểm không âm; hiện 20% tốt), `blueprint` (ván rải ngẫu nhiên giữa các mốc 🪨🏮🏺; người cầm bản vẽ xem bản vẽ thu nhỏ ở bảng gỗ rồi **nhắn tin** chỉ, chỉ người kia mới nhặt được), `carry` (hai người đứng hai bên ván ✋ cùng lúc để nâng, giữ khoảng cách `minGap`–`maxGap` khi đi, ra tới `deliverX` là giao), `tie` (một người **nhấn giữ** ✋ ở chỗ giữ ván — `holdOn`/`holdOff`; người kia bấm `tie` khi kim `tieNeedle` trong vùng `zone`; trượt hoặc không ai giữ thì −1; mỗi nút buộc kim nhanh thêm `speedUp`), `sync` (bấm cùng lúc ở 2 chỗ), `holdWalk` (nắm tay đi tới đích). `plates`/`collect` hiện chưa dùng nhưng vẫn giữ trong engine. Thêm ở Cổng Hoa Đào: `statue` (cây hô chu kỳ go → chant → freeze; lúc freeze ai lệch quá `moveTolerance` sau `graceMs` là thua), `leafWalk` (lá rơi phía trước hướng đi `spawnAhead`, **server tự phát hiện** lá trúng ai),  Trò dân gian: `blindGoat` (người bịt mắt `blindId` không nhận vị trí dê, chỉ chộp được khi đứng trong `grabRadius`; người dẫn đường dùng **nút ra hiệu** `sig:left/right/stop/grab` — không bắt nhắn tin; bắt được thì đổi vai), `nemcon` (hai việc tách riêng: người ném `thrower` giữ ✋ = `aim`, thả = `throw`, lực trong `powerZone` thì bóng `ready`; người kia (thấy vòng) bấm `shout` lúc vòng trong `ringZone` thì lọt; thay phiên ném), `memory` (thẻ úp không gửi loại hoa; thay phiên lật, sai thì úp lại sau `showMs`), `tug` (khi có "DÔ!" cả hai `pull` cách nhau ≤ `syncMs`; kéo sớm hay lệch nhịp thì bị kéo lại; s ≥ 1 là thắng). Đã bỏ `butterfly` (bản lưu cũ chuyển sang `blindgoat` qua `RENAMED`). `cadao` (người biết câu = `seerId` nhận `verse`; thay phiên chạm đèn đúng thứ tự, sai thì tắt hết), `photo` (nắm tay trong khung + cùng bấm).
   - **Thông tin bí mật** (bản vẽ): server gửi `quest:state` riêng cho từng người (`emitQuest`), chỉ người cầm bản vẽ (`seerId`) nhận `kind` của ván. Không bao giờ broadcast chung cho cả phòng.
   - Server chỉ gửi trường công khai của người chơi (`publicState`): không lộ `clientId` hay trạng thái nội bộ của bot.
   - Vật rơi do server thả theo nhịp (`tickQuest`, 100ms) quanh vị trí hai người; gửi kèm `age` để client tự tính độ cao, không phụ thuộc đồng hồ server.
@@ -154,6 +175,8 @@ Làm **theo thứ tự**, xong và kiểm tra giai đoạn trước mới sang g
   - `blueprint`: bot cầm bản vẽ thì đứng ở bảng gỗ và nhắn "Tấm thứ N bên trái/phải <mốc>" (`describePlank`); người chơi cầm bản vẽ thì bot hiểu tin nhắn dạng "đèn lồng phải 2" (`findPlank`, so từ khoá không dấu). `carry`: bot sang đầu ván bên kia, nâng theo, giữ cách 80 khi khiêng. `tie`: bot sang chỗ còn lại; ở chỗ giữ thì giữ ván, ở chỗ buộc thì canh kim vào giữa vùng xanh rồi buộc.
   - Bot chạy trong nhịp 100ms của server (`tickRoomBot`), đi qua đúng logic nhiệm vụ như người thật. Người chơi rời phòng thì phòng đóng luôn.
   - Thêm kiểu nhiệm vụ mới cần 2 người thì nhớ dạy bot cách phối hợp trong `server/bot.js`.
+  - Trò dân gian (`server/bot-folk.js`): bot bịt mắt làm theo tin nhắn "trái/phải/dừng/bắt", bot dẫn đường thì nhắn hướng; ném còn: bot tự canh lực + vòng, hoặc hô "Ném!" khi vòng sắp về giữa và lực vừa đủ; lật thẻ: bot chỉ nhớ thẻ đã thấy; kéo co: bot kéo ngay sau người chơi.
+  - Thử thách Cổng Hoa Đào: bot đứng im khi cây hô `freeze`; né lá thì đi sát người chơi; ca dao: bot biết câu thì nhắn «chữ» cần chạm, người chơi biết câu thì bot hiểu chữ có trên đèn trong tin nhắn; chụp ảnh thì bấm theo.
 - **Giai đoạn 2 (Không khí)**: đủ 5 cảnh của Đồi Mây Ước, parallax, trời theo giờ thật, emote, đồng hồ "đã đi cùng nhau X phút", nhạc nền (có nút tắt).
 - **Giai đoạn 3 (Kỷ niệm)**: nhặt và tặng quà, ngồi ghế đá, lời nhắn để lại trên đường, chuỗi ngày (streak), lưu dữ liệu.
 - **Giai đoạn 4 (Deploy)**: đưa lên mạng, có link gửi cho người ấy.

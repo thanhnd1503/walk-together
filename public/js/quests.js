@@ -2,13 +2,14 @@
 // Server mới là nơi quyết định hoàn thành; client chỉ gửi yêu cầu.
 import { PALETTE } from './palette.js';
 import {
-  FLOATER_MS, bell, edgeMarker, floaterText, goalFlag, plankItem, progressRing, promptBubble, stump,
+  FLOATER_MS, bell, edgeMarker, floaterText, goalFlag, plankItem, promptBubble,
 } from './quest-draw.js';
 import { blueprintMap } from './blueprint-map.js';
-import { drawCarriedPlank, drawCarry, drawFalling, drawTie, targetMarks } from './quest-view.js';
+import { CHALLENGE_TYPES, createChallengeClient } from './challenge-client.js';
+import { drawCarriedPlank, drawCarry, drawFalling, drawPlates, drawTie, targetMarks } from './quest-view.js';
 import {
   QUESTS, SCENES, BARRIERS, COLLECT_RADIUS, CATCH_RADIUS, CATCH_FROM,
-  INTERACT_RADIUS, PLATE_RADIUS, SYNC_WINDOW_MS, maxXFor, sceneAt,
+  INTERACT_RADIUS, LEVEL_NAMES, PLATE_RADIUS, SYNC_WINDOW_MS, fallX, maxXFor, questAt, sceneAt,
 } from '/shared/quests.js';
 
 const BARRIER_HINT_MS = 4000;
@@ -16,8 +17,18 @@ const BELL_SWING_MS = 1400;
 const BOARD_RANGE = 80; // đứng gần bảng gỗ trong khoảng này thì người cầm bản vẽ xem được bản vẽ
 const COUNTED = ['collect', 'catch', 'blueprint', 'carry', 'tie'];
 
+// Thông báo theo hiệu ứng (khiêng ván, buộc lạt): [nội dung, thời gian hiện] hoặc không báo
+const FX_TOASTS = {
+  lift: (d, mine) => mine && ['🪵 Đã nâng một đầu, người ấy ✋ đầu kia cùng lúc nhé', 1800],
+  liftFail: () => ['↔️ Mỗi người đứng một đầu ván, cách nhau vừa phải nhé', 2200],
+  lifted: () => ['💪 Nâng lên rồi! Đi cùng nhịp ra đầu cầu nhé', 2200],
+  drop: () => ['💥 Rơi ván rồi! Giữ khoảng cách vừa phải, nâng lại nào', 2400],
+  hold: (d, mine) => !mine && ['🤲 Người ấy đang giữ ván, buộc lạt đi!', 1800],
+  tie: (d) => !d.ok && [d.reason === 'nohold' ? '😵 Chưa ai giữ ván, lạt tuột mất! (−1)' : '😵 Lệch nhịp, nút buộc bị tuột (−1)', 2000],
+};
+
 // ---------- Module nhiệm vụ ----------
-export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
+export function createQuests({ net, toast, panelEl, actBtn, getSelfId, getHolding }) {
   let state = { index: 0, count: 0, items: [], seerId: null, plank: null };
   const pending = new Set();
   const fx = new Map(); // targetId -> thời điểm rung chuông / gõ búa
@@ -39,7 +50,9 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
   };
   panelEl.append(panel.scene, panel.title, panel.hint);
 
-  const current = () => QUESTS[state.index];
+  const current = () => questAt(state.index, state.level);
+  const challenge = createChallengeClient({ net, toast, getSelfId, getHolding });
+  const isChallenge = (q) => q && CHALLENGE_TYPES.includes(q.type);
   const isSeer = () => state.seerId && state.seerId === getSelfId();
 
   function renderPanel() {
@@ -52,7 +65,13 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
     }
     const sceneQuests = QUESTS.filter((x) => x.scene === q.scene);
     const scene = SCENES.find((s) => s.id === q.scene);
-    panel.scene.textContent = `📍 ${scene.name} · Nhiệm vụ ${sceneQuests.indexOf(q) + 1}/${sceneQuests.length}`;
+    panel.scene.textContent = `📍 ${scene.name} · Nhiệm vụ ${sceneQuests.findIndex((x) => x.id === q.id) + 1}/${sceneQuests.length} · ${LEVEL_NAMES[state.level] ?? ''}`;
+    if (isChallenge(q)) {
+      const { title, hint } = challenge.panel(q, state.count);
+      panel.title.textContent = title;
+      panel.hint.textContent = hint;
+      return;
+    }
     panel.title.textContent = COUNTED.includes(q.type) ? `${q.title} (${state.count}/${q.goal})` : q.title;
     panel.hint.textContent = q.type === 'blueprint' ? blueprintHint() : q.hint;
   }
@@ -75,6 +94,7 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
     }
     if (next.index !== prev) platesStart = null;
     if (next.tie) tie = { holder: next.tie.holder, start: now - next.tie.sweepAge };
+    challenge.setState(next, now);
     if (tie.holder !== getSelfId()) holding = false;
     if (!initial && next.index > prev) {
       const done = QUESTS[prev];
@@ -116,8 +136,9 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
     if (q?.type === 'catch') {
       // Hứng khi vật đang rơi ngang người; ẩn ngay cho mượt, server sẽ chấm điểm
       for (const it of state.items) {
-        const progress = (now - spawnedAt.get(it.id)) / q.fallMs;
-        if (progress >= CATCH_FROM && progress <= 1 && Math.abs(me.x - it.x) <= CATCH_RADIUS && !pending.has(it.id)) {
+        const age = now - spawnedAt.get(it.id);
+        const progress = age / (it.fallMs ?? q.fallMs);
+        if (progress >= CATCH_FROM && progress <= 1 && Math.abs(me.x - fallX(it, age)) <= CATCH_RADIUS && !pending.has(it.id)) {
           pending.add(it.id);
           net.collect(it.id);
         }
@@ -135,7 +156,8 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
     nearTarget = hasTargets ? nearestWithin(q.targets, me.x, INTERACT_RADIUS, (t) => t.x) : null;
     nearItem = q?.type === 'blueprint' && !isSeer() ? nearestWithin(state.items, me.x, INTERACT_RADIUS, (it) => it.x) : null;
     nearPlank = q?.type === 'carry' && !state.plank?.carriers && Math.abs(me.x - state.plank.x) <= q.reach;
-    actBtn.hidden = !nearTarget && !nearItem && !nearPlank;
+    const nearChallenge = isChallenge(q) && challenge.near(q, me);
+    actBtn.hidden = !nearTarget && !nearItem && !nearPlank && !nearChallenge;
 
     if (q?.type === 'plates' && onPlates(q, me, partner)) platesStart ??= now;
     else platesStart = null;
@@ -148,6 +170,10 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
 
   function interact() {
     const q = current();
+    if (isChallenge(q)) {
+      challenge.interact();
+      return;
+    }
     if (q?.type === 'tie' && nearTarget) {
       // Chỗ giữ ván: nhấn giữ; chỗ buộc: bấm đúng lúc
       if (nearTarget.id === 'hold') {
@@ -163,6 +189,7 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
 
   // Thả nút ✋ / phím E
   function release() {
+    challenge.release();
     if (!holding) return;
     holding = false;
     net.interact('holdOff');
@@ -172,48 +199,32 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
     const { type, targetId, by, kind, x } = data;
     const now = performance.now();
     const mine = by === selfId;
-    const float = (fx, text, color) => floaters.push({ x: fx, y: groundY - 95, text, color, at: now });
+    const float = (fx, text, color, y = groundY - 95) => floaters.push({ x: fx, y, text, color, at: now });
+    if (challenge.onFx(data, float, groundY)) return;
 
-    switch (type) {
-      case 'catch':
-        float(x, kind === 'good' ? '+1' : '−1', kind === 'good' ? PALETTE.plus : PALETTE.minus);
-        return;
-      case 'lift':
-        if (mine) toast('🪵 Đã nâng một đầu, người ấy ✋ đầu kia cùng lúc nhé', 1800);
-        return;
-      case 'liftFail':
-        toast('↔️ Mỗi người đứng một đầu ván, cách nhau vừa phải nhé', 2200);
-        return;
-      case 'lifted':
-        toast('💪 Nâng lên rồi! Đi cùng nhịp ra đầu cầu nhé', 2200);
-        return;
-      case 'drop':
-        toast('💥 Rơi ván rồi! Giữ khoảng cách vừa phải, nâng lại nào', 2400);
-        return;
-      case 'deliver':
-        float(x, '+1 🪵', PALETTE.plus);
-        return;
-      case 'hold':
-        if (!mine) toast('🤲 Người ấy đang giữ ván, buộc lạt đi!', 1800);
-        return;
-      case 'tie':
-        if (data.ok) float(x, 'Chặt! 🪢', PALETTE.plus);
-        else if (data.reason === 'nohold') toast('😵 Chưa ai giữ ván, lạt tuột mất! (−1)', 2200);
-        else toast('😵 Lệch nhịp, nút buộc bị tuột (−1)', 2000);
-        return;
-      default:
-        // Chuông gió
-        fx.set(targetId, now);
-        if (mine) toast('🔔 Đã rung! Người ấy rung chuông còn lại cùng lúc nhé', 2200);
-    }
+    const floats = {
+      catch: () => float(x, { good: '+1', gold: '+3 ✨', bad: '−1' }[kind], kind === 'bad' ? PALETTE.minus : kind === 'gold' ? PALETTE.questGold : PALETTE.plus),
+      deliver: () => float(x, '+1 🪵', PALETTE.plus),
+      tie: () => data.ok && float(x, 'Chặt! 🪢', PALETTE.plus),
+    };
+    floats[type]?.();
+    const message = FX_TOASTS[type]?.(data, mine);
+    if (message) toast(...message);
+    if (type in floats || type in FX_TOASTS) return;
+    // Chuông gió
+    fx.set(targetId, now);
+    if (mine) toast('🔔 Đã rung! Người ấy rung chuông còn lại cùng lúc nhé', 2200);
   }
+
 
   function draw(ctx, groundY, t, me, partner) {
     const q = current();
     if (!q) return;
     const now = performance.now();
 
-    if (q.type === 'catch') {
+    if (isChallenge(q)) {
+      challenge.draw(ctx, q, groundY, t, now, [me, partner].filter(Boolean));
+    } else if (q.type === 'catch') {
       drawFalling(ctx, q, state.items.filter((it) => !pending.has(it.id)), spawnedAt, groundY, t, now);
     } else if (q.type === 'collect') {
       for (const it of state.items) plankItem(ctx, it.x, groundY - 8 + Math.sin(t * 2 + it.id) * 2, t);
@@ -235,14 +246,7 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
       }
       if (nearTarget) promptBubble(ctx, nearTarget.x, groundY - 150);
     } else if (q.type === 'plates') {
-      const people = [me, partner].filter(Boolean);
-      for (const target of q.targets) {
-        stump(ctx, target.x, groundY, people.some((p) => Math.abs(p.x - target.x) <= PLATE_RADIUS));
-      }
-      if (platesStart !== null) {
-        const mid = (q.targets[0].x + q.targets[1].x) / 2;
-        progressRing(ctx, mid, groundY - 120, Math.min(1, (now - platesStart) / q.holdMs));
-      }
+      drawPlates(ctx, q, [me, partner].filter(Boolean), platesStart, groundY, now);
     } else if (q.type === 'holdWalk') {
       goalFlag(ctx, q.goalX, groundY, t);
     }
@@ -265,6 +269,7 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
 
     // Người cầm bản vẽ đứng ở bảng gỗ thì mở bản vẽ thu nhỏ
     const q = current();
+    if (q) challenge.drawOverlay(ctx, q, view, performance.now(), camX, groundY, me, partner);
     if (q?.type === 'blueprint' && isSeer() && me && Math.abs(me.x - q.boardX) <= BOARD_RANGE) {
       const top = Math.max(64, groundY - 330);
       blueprintMap(ctx, { viewW: view.w, top, q, items: state.items, meX: me.x, partnerX: partner?.x });
@@ -274,9 +279,11 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId }) {
   function drawFront(ctx, groundY, me, partner) {
     const q = current();
     if (q?.type === 'carry') drawCarriedPlank(ctx, q, state.plank, [me, partner], groundY);
+    if (isChallenge(q)) challenge.drawFront(ctx, q, groundY, [me, partner].filter(Boolean));
   }
 
   return {
+    handChallenge: () => current()?.hand === true,
     setState,
     drawFront,
     drawOverlay,

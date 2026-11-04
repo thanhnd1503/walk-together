@@ -1,6 +1,6 @@
 // Vẽ theo từng kiểu nhiệm vụ (hàm thuần, nhận đủ dữ liệu qua tham số)
-import { holdMark, leafItem, longPlank, petalItem, promptBubble, ropeCoil, tieBar } from './quest-draw.js';
-import { FALL_HEIGHT, tieNeedle } from '/shared/quests.js';
+import { holdMark, leafItem, longPlank, petalItem, progressRing, promptBubble, ropeCoil, stump, tieBar } from './quest-draw.js';
+import { FALL_HEIGHT, PLATE_RADIUS, fallX, tieNeedle } from '/shared/quests.js';
 
 const LANDED_FADE = 0.1; // phần tiến độ rơi để mờ dần sau khi chạm đất
 const CARRY_HEIGHT = 22; // ván khiêng ngang tay
@@ -10,15 +10,17 @@ const PLANK_OVERHANG = 18;
 // Cánh hoa / lá khô đang rơi
 export function drawFalling(ctx, q, items, spawnedAt, groundY, t, now) {
   for (const it of items) {
-    const progress = (now - spawnedAt.get(it.id)) / q.fallMs;
+    const fallMs = it.fallMs ?? q.fallMs;
+    const age = now - spawnedAt.get(it.id);
+    const progress = age / fallMs;
     if (progress > 1 + LANDED_FADE) continue;
     const fall = Math.min(1, progress);
     const y = groundY - 10 - FALL_HEIGHT * (1 - fall);
-    const sx = it.x + (fall < 1 ? Math.sin(progress * 9 + it.id) * 6 : 0);
+    const sx = fallX(it, Math.min(age, fallMs)) + (fall < 1 ? Math.sin(progress * 9 + it.id) * 6 : 0);
     ctx.save();
     if (progress > 1) ctx.globalAlpha = 1 - (progress - 1) / LANDED_FADE;
     if (it.kind === 'bad') leafItem(ctx, sx, y, progress * 6 + it.id);
-    else petalItem(ctx, sx, y, t);
+    else petalItem(ctx, sx, y, t, it.kind === 'gold');
     ctx.restore();
   }
 }
@@ -54,6 +56,17 @@ export function drawTie(ctx, q, tie, count, groundY, t, now) {
   tieBar(ctx, tieSpot.x - 30, groundY - 128, needle, q.zone, held, count, q.goal);
 }
 
+// Cùng đứng trên hai cọc (hiện chưa dùng)
+export function drawPlates(ctx, q, people, platesStart, groundY, now) {
+  for (const target of q.targets) {
+    stump(ctx, target.x, groundY, people.some((p) => Math.abs(p.x - target.x) <= PLATE_RADIUS));
+  }
+  if (platesStart !== null) {
+    const mid = (q.targets[0].x + q.targets[1].x) / 2;
+    progressRing(ctx, mid, groundY - 120, Math.min(1, (now - platesStart) / q.holdMs));
+  }
+}
+
 // Vị trí các mục tiêu cần đi tới của nhiệm vụ hiện tại (không tính vật rơi)
 export function targetMarks(q, state, isSeer) {
   if (!q) return [];
@@ -65,6 +78,14 @@ export function targetMarks(q, state, isSeer) {
     case 'blueprint': return isSeer ? [{ x: q.boardX, icon: '🗺️' }] : state.items.map((it) => ({ x: it.x, icon: '🪵' }));
     case 'carry': return [{ x: state.plank.carriers ? q.deliverX : state.plank.x, icon: '🪵' }];
     case 'holdWalk': return [{ x: q.goalX, icon: '💕' }];
+    case 'statue': return [{ x: q.startX, icon: '🏁' }];
+    case 'leafWalk': return [{ x: q.startX, icon: '🏁' }];
+    case 'cadao': return state.items.map((it) => ({ x: it.x, icon: '🏮' }));
+    case 'blindGoat': return [{ x: (q.area[0] + q.area[1]) / 2, icon: '🐐' }];
+    case 'nemcon': return [{ x: q.throwX, icon: '🏐' }];
+    case 'memory': return state.items.filter((it) => it.state === 'down').map((it) => ({ x: it.x, icon: '🃏' }));
+    case 'tug': return [{ x: q.startX, icon: '💪' }];
+    case 'photo': return [{ x: q.frameX, icon: '📸' }];
     default: return [];
   }
 }

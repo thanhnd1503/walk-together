@@ -112,6 +112,7 @@ const net = createNet({
     setHolding(false);
   },
   onMove(data) {
+    // MOVE của chính mình = server đưa về vạch xuất phát
     state.players.get(data.id)?.applyRemote(data);
   },
   onChat({ id, text }) {
@@ -133,7 +134,9 @@ const net = createNet({
   },
 });
 
-const quests = createQuests({ net, toast, panelEl: $('quest-panel'), actBtn: $('btn-act'), getSelfId: () => state.selfId });
+const quests = createQuests({
+  net, toast, panelEl: $('quest-panel'), actBtn: $('btn-act'), getSelfId: () => state.selfId, getHolding: () => state.holding,
+});
 
 // ---------- Điều khiển ----------
 async function toggleHand() {
@@ -143,14 +146,11 @@ async function toggleHand() {
 }
 
 const input = createInput({
-  chatInput,
-  btnLeft: $('btn-left'),
-  btnRight: $('btn-right'),
-  btnAct: $('btn-act'),
+  chatInput, btnLeft: $('btn-left'), btnRight: $('btn-right'), btnAct: $('btn-act'),
   onHand: toggleHand,
+  onAct: () => state.joined && quests.interact(),
   onActUp: () => quests.release(),
   onFocusChat: () => chatInput.focus(),
-  onAct: () => state.joined && quests.interact(),
   isBlocked: () => lookScreen.isOpen(),
 });
 
@@ -213,10 +213,9 @@ function updateLocal(dt) {
     me.dir = axis;
   }
 
-  // Đang nắm tay, mình đứng yên mà người kia đi xa thì mình được kéo theo.
-  // Người đang tự đi thì không bị kéo, nếu không cả hai sẽ níu nhau đứng im.
+  // Nắm tay: mình đứng yên thì được kéo theo người kia (thử thách nắm tay thì không: mỗi người tự đi)
   const p = partner();
-  if (state.holding && p && !axis) {
+  if (state.holding && p && !axis && !quests.handChallenge()) {
     const gap = me.x - p.renderX;
     if (Math.abs(gap) > HOLD_DISTANCE) {
       me.x = p.renderX + Math.sign(gap) * HOLD_DISTANCE;

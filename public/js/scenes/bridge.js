@@ -6,8 +6,9 @@ import { BARRIERS, QUESTS, SCENES, isDone } from '/shared/quests.js';
 const SCENE = SCENES[1];
 const BRIDGE_BARRIER = BARRIERS[1];
 const END_BARRIER = BARRIERS[2];
-export const STREAM = [3250, 3550];
-const GAP = [3330, 3470]; // đoạn cầu bị gãy
+const S = SCENE.start; // toạ độ trong cảnh tính từ đầu cảnh
+export const STREAM = [S + 850, S + 1150];
+const GAP = [S + 930, S + 1070]; // đoạn cầu bị gãy
 const BLUEPRINT = QUESTS.find((q) => q.type === 'blueprint');
 const LOCK_COLORS = ['#FF8FAB', '#F7C948', '#A2D2FF', '#CDB4DB', '#F28B82'];
 
@@ -67,7 +68,7 @@ function stream(ctx, groundY, t) {
     ctx.stroke();
   }
   // Lá sen + hoa sen
-  for (const [lx, ly] of [[3290, 30], [3370, 52], [3440, 26], [3510, 46]]) {
+  for (const [lx, ly] of [[S + 890, 30], [S + 970, 52], [S + 1040, 26], [S + 1110, 46]]) {
     ctx.beginPath();
     ctx.ellipse(lx, groundY + ly, 15, 5, 0, 0.25, Math.PI * 2 - 0.25);
     ctx.lineTo(lx, groundY + ly);
@@ -78,7 +79,7 @@ function stream(ctx, groundY, t) {
     ctx.lineWidth = 1.8;
     ctx.stroke();
   }
-  for (const [lx, ly] of [[3370, 46], [3510, 40]]) {
+  for (const [lx, ly] of [[S + 970, 46], [S + 1110, 40]]) {
     for (const a of [-0.6, 0, 0.6]) {
       ctx.save();
       ctx.translate(lx, groundY + ly);

@@ -97,7 +97,7 @@ export function drawWorld(ctx, view, camX, groundY, t, questIndex) {
     const color = [PALETTE.blossomDeep, PALETTE.cream, PALETTE.blossom][f.hue];
     circle(ctx, f.x, groundY + f.dy, 3, color, null);
   }
-  drawGateScene(ctx, groundY, left, right, questIndex);
+  drawGateScene(ctx, groundY, left, right, questIndex, t);
   drawBridgeScene(ctx, groundY, left, right, questIndex, t);
   ctx.restore();
 }
