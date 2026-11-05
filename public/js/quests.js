@@ -284,6 +284,8 @@ export function createQuests({ net, toast, panelEl, actBtn, getSelfId, getHoldin
 
   return {
     handChallenge: () => current()?.hand === true,
+    // Nhân vật đang bật lên bao nhiêu (nhảy sạp)
+    liftOf: (id) => (isChallenge(current()) ? challenge.liftOf(id, performance.now()) : 0),
     setState,
     drawFront,
     drawOverlay,

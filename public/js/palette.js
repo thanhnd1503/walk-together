@@ -68,6 +68,19 @@ export const PALETTE = {
   plus: '#3FA66B',
   minus: '#D9534F',
   heart: '#FF8FAB',
+
+  // Cầu Tình Yêu – bờ bên kia
+  minnow: '#B9C4CC',
+  koiSpot: '#FFF8E7',
+  rain: 'rgba(120, 160, 210, 0.55)',
+  umbrella: '#FF8FAB',
+  umbrellaStripe: '#FFC8DD',
+  stone: '#C8BFB8',
+  stoneDark: '#A89E97',
+  brass: '#E9C46A',
+  willow: '#A8D5A2',
+  willowDark: '#8CC48A',
+  shade: 'rgba(30, 22, 34, 0.12)',
 };
 
 export const OUTFIT_HEX = {

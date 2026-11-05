@@ -7,6 +7,7 @@ import { interactBlueprint, interactCarry, interactTie, layPlanks, moveBridge } 
 import {
   CHALLENGE_TYPES, challengeItems, challengePublic, interactChallenge, moveChallenge, setupChallenge, tickChallenge,
 } from './challenges.js';
+import { chatLocked } from './bridge-games.js';
 
 // Vật rơi: nới thời điểm hứng vì mạng trễ; giữ thêm chút sau khi chạm đất rồi mới xoá
 const CATCH_PROGRESS_SLACK = 0.18;
@@ -244,3 +245,6 @@ export function checkPositions(p, room, now) {
   }
   return { changed: false };
 }
+
+// Có đang cấm nhắn tin không (thử thách cần đoán ý nhau)
+export const chatBlocked = (p) => chatLocked(p, questOf(p));

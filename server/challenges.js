@@ -1,27 +1,22 @@
 // Thử thách ở Cổng Hoa Đào: người gỗ, né lá, ca dao, chụp ảnh (+ chia việc cho trò dân gian ở folk-games.js).
 // Mỗi hàm trả về { changed, fx?, teleport?, photo?, completed? }; quests.js lo phần hoàn thành nhiệm vụ.
 import { INTERACT_RADIUS, SERVER_SLACK, SYNC_WINDOW_MS, CATCH_FROM, SIMILAR_WORDS } from '../shared/quests.js';
-import { NONE, RESTART_DELAY_MS, bothAtStart, handOk, pair, pick, rand, shuffle } from './challenge-utils.js';
+import { NONE, backToStart, bothAtStart, handOk, pair, pick, rand, shuffle } from './challenge-utils.js';
+import { BRIDGE_TYPES, bridgeItems, bridgePublic, interactBridge, setupBridge, tickBridge } from './bridge-games.js';
 import { FOLK_TYPES, folkItems, folkPublic, interactFolk, setupFolk, tickFolk } from './folk-games.js';
 
-export const CHALLENGE_TYPES = ['statue', 'leafWalk', 'cadao', 'photo', ...FOLK_TYPES];
+export const CHALLENGE_TYPES = ['statue', 'leafWalk', 'cadao', 'photo', ...FOLK_TYPES, ...BRIDGE_TYPES];
 
-const RESET_GAP = 25; // về vạch: hai người đứng hai bên vạch
 const LANDED_KEEP_MS = 300;
-
-// Thử thất bại: cả hai về vạch xuất phát
-function backToStart(p, q, room, now, reason, by = null) {
-  p.ch.phase = 'idle';
-  p.ch.readyAt = now + RESTART_DELAY_MS;
-  p.items = [];
-  const teleport = pair(room).map((pl, i) => ({ id: pl.id, x: q.startX + (i ? RESET_GAP : -RESET_GAP) }));
-  return { changed: true, fx: { type: 'fail', reason, by }, teleport };
-}
 
 // ---------- Khởi tạo ----------
 export function setupChallenge(p, q, now) {
   if (FOLK_TYPES.includes(q.type)) {
     setupFolk(p, q, now);
+    return;
+  }
+  if (BRIDGE_TYPES.includes(q.type)) {
+    setupBridge(p, q, now);
     return;
   }
   switch (q.type) {
@@ -53,6 +48,7 @@ export function setupChallenge(p, q, now) {
 // ---------- Trạng thái gửi cho từng người ----------
 export function challengePublic(p, q, now, viewerId) {
   if (FOLK_TYPES.includes(q.type)) return folkPublic(p, q, now, viewerId);
+  if (BRIDGE_TYPES.includes(q.type)) return bridgePublic(p, q, now, viewerId);
   const ch = p.ch;
   switch (q.type) {
     case 'statue':
@@ -69,6 +65,7 @@ export function challengePublic(p, q, now, viewerId) {
 
 export function challengeItems(p, q) {
   if (FOLK_TYPES.includes(q.type)) return folkItems(p, q);
+  if (BRIDGE_TYPES.includes(q.type)) return bridgeItems(p, q);
   if (q.type === 'cadao') return p.items.map(({ id, x, word, lit }) => ({ id, x, word, lit }));
   return null;
 }
@@ -209,6 +206,7 @@ export function tickChallenge(p, q, room, now, dtMs) {
   if (q.type === 'statue') return tickStatue(p, q, room, now);
   if (q.type === 'leafWalk') return tickLeafWalk(p, q, room, now);
   if (FOLK_TYPES.includes(q.type)) return tickFolk(p, q, room, now);
+  if (BRIDGE_TYPES.includes(q.type)) return tickBridge(p, q, room, now, dtMs);
   return NONE;
 }
 
@@ -220,6 +218,7 @@ export function moveChallenge(p, q, room, now) {
 
 export function interactChallenge(p, q, player, targetId, room, now) {
   if (FOLK_TYPES.includes(q.type)) return interactFolk(p, q, player, targetId, room, now);
+  if (BRIDGE_TYPES.includes(q.type)) return interactBridge(p, q, player, targetId, room, now);
   if (q.type === 'cadao') return interactCadao(p, q, player, targetId);
   if (q.type === 'photo' && targetId === 'photo') return interactPhoto(p, q, player, room, now);
   return NONE;

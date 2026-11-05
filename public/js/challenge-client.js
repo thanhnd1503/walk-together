@@ -2,15 +2,19 @@
 import { PALETTE } from './palette.js';
 import { drawChallenge, drawChallengeOverlay, drawHowTo } from './challenge-view.js';
 import { drawFolk, drawFolkFront, drawFolkOverlay } from './folk-view.js';
+import { BRIDGE_TYPES, createBridgeClient } from './bridge-client.js';
+import { drawBridgeFront, drawBridgeGame, drawBridgeOverlay } from './bridge-view.js';
 import { INTERACT_RADIUS } from '/shared/quests.js';
 
 const FOLK_TYPES = ['blindGoat', 'nemcon', 'memory', 'tug'];
-export const CHALLENGE_TYPES = ['statue', 'leafWalk', 'cadao', 'photo', ...FOLK_TYPES];
+export const CHALLENGE_TYPES = ['statue', 'leafWalk', 'cadao', 'photo', ...FOLK_TYPES, ...BRIDGE_TYPES];
 
 const START_MSG = {
   statue: '🌳 Bắt đầu! Đi khi cây quay lưng, đứng im khi cây hô',
   leafWalk: '🍂 Bắt đầu! Nắm chặt tay, né lá rơi nhé',
   tug: '💪 Bắt đầu kéo co! Thấy "DÔ!" thì cả hai cùng bấm ✋',
+  umbrella: '☔ Mưa rồi! Nắm tay đứng sát dưới ô mà đi nhé',
+  sap: '🎋 Bắt đầu nhảy sạp! Sạp khép thì cả hai cùng bấm ✋',
 };
 
 const TOSS_MSG = { weak: 'lực yếu quá', strong: 'lực mạnh quá', ring: 'hô lệch lúc vòng chưa về giữa' };
@@ -21,6 +25,8 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
     nearItem: null, nearTarget: null, photoShown: null, seerId: null, toss: null, aiming: false,
     signal: null, tugMsg: null,
   };
+  const bridge = createBridgeClient({ net, toast, getSelfId, s });
+  const isBridge = (q) => BRIDGE_TYPES.includes(q?.type);
 
   // Bịt mắt bắt dê: nút ra hiệu nhanh cho người dẫn đường (bấm được cả bằng phím 1–4)
   const signalBar = document.getElementById('signal-bar');
@@ -52,6 +58,7 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
     const ids = new Set(next.items.map((it) => it.id));
     for (const id of s.spawnedAt.keys()) if (!ids.has(id)) s.spawnedAt.delete(id);
     for (const it of next.items) if (it.age !== undefined && !s.spawnedAt.has(it.id)) s.spawnedAt.set(it.id, now - it.age);
+    bridge.setState(s.ch, now);
   }
 
   const idle = () => s.ch?.phase === 'idle';
@@ -59,6 +66,7 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
 
   // Tiêu đề + gợi ý cho bảng nhiệm vụ
   function panel(q, count) {
+    if (isBridge(q)) return bridge.panel(q, count);
     const ch = s.ch ?? {};
     const titled = (n, goal, unit = '') => `${q.title} (${n}/${goal}${unit})`;
     switch (q.type) {
@@ -127,10 +135,16 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
     if (q.type === 'nemcon' && ch.thrower && ch.thrower !== me() && ch.ready) s.nearTarget = { id: 'shout', x: player.x };
     if (q.type === 'tug' && ch.phase === 'active') s.nearTarget = { id: 'pull', x: player.x };
     signalBar.hidden = !(q.type === 'blindGoat' && ch.blindId && ch.blindId !== me());
+    if (isBridge(q)) return bridge.near(q, player);
     return Boolean(s.nearItem || s.nearTarget);
   }
 
+  let current = null; // nhiệm vụ đang vẽ gần nhất, để biết chuyển việc cho phần Cầu Tình Yêu
   function interact() {
+    if (isBridge(current)) {
+      bridge.interact();
+      return;
+    }
     if (s.nearItem) net.interact(`item:${s.nearItem.id}`);
     else if (s.nearTarget) {
       if (s.nearTarget.id === 'aim') s.aiming = true; // ném còn: giữ để lấy lực, thả tay để ném
@@ -139,6 +153,7 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
   }
 
   function release() {
+    bridge.release();
     if (!s.aiming) return;
     s.aiming = false;
     net.interact('throw');
@@ -157,6 +172,7 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
           drop: '💔 Rớt tay rồi! Nắm tay lại làm lại nhé',
           leaf: mine ? '🍂 Bạn bị lá rơi trúng! Về vạch nào' : '🍂 Người ấy bị lá rơi trúng! Về vạch nào',
           lost: '😵 Bù nhìn kéo thắng rồi! Kéo lại từ giữa nhé',
+          wet: mine ? '💧 Bạn ướt sũng rồi! Về vạch nào' : '💧 Người ấy ướt sũng rồi! Về vạch nào',
         }[data.reason];
         toast(msg ?? '😵 Làm lại nào', 2600);
         return true;
@@ -212,7 +228,7 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
         toast('📸 Đã lưu ảnh kỷ niệm 💕', 3000);
         return true;
       default:
-        return false;
+        return bridge.onFx(data, float);
     }
   }
 
@@ -225,15 +241,20 @@ export function createChallengeClient({ net, toast, getSelfId, getHolding }) {
     interact,
     release,
     onFx,
+    liftOf: (id, now) => bridge.liftOf(id, now),
     draw(ctx, q, groundY, t, now, people) {
+      current = q;
       if (isFolk(q)) drawFolk(ctx, q, s, groundY, t, now, people, me());
+      else if (isBridge(q)) drawBridgeGame(ctx, q, s, groundY, t, now, people, me());
       else drawChallenge(ctx, q, s, groundY, t, now, people);
     },
     drawFront(ctx, q, groundY, people) {
       if (isFolk(q)) drawFolkFront(ctx, q, s, groundY, people);
+      if (isBridge(q)) drawBridgeFront(ctx, q, s, groundY, people, performance.now());
     },
     drawOverlay(ctx, q, view, now, camX, groundY, player, partner) {
       if (isFolk(q)) drawFolkOverlay(ctx, q, s, view, now, camX, groundY, player);
+      if (isBridge(q)) drawBridgeOverlay(ctx, q, s, view, now, camX, groundY, player);
       drawChallengeOverlay(ctx, q, s, view, now, camX, groundY);
       // Thử thách nắm tay chưa bắt đầu: bảng hướng dẫn có ô tích
       if (q.hand && s.ch?.phase === 'idle' && player) drawHowTo(ctx, q, view, player, partner, getHolding());

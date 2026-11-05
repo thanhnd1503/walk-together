@@ -266,7 +266,7 @@ function render(camX, t, now) {
   for (const pl of players) {
     const other = pl === me ? p : me;
     const reach = state.holding && other ? (other.renderX - pl.renderX) / 2 : null;
-    pl.draw(ctx, pl.renderX - camX, gy, t, reach);
+    pl.draw(ctx, pl.renderX - camX, gy - quests.liftOf(pl.id), t, reach);
   }
   inWorld(() => quests.drawFront(ctx, gy, me, p)); // vật cầm trên tay vẽ trước mặt nhân vật
 

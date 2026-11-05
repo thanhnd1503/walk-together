@@ -76,6 +76,15 @@ const HOWTO_LAST = {
   statue: '🌳 Đi khi cây quay lưng, đứng im khi cây hô',
   leafWalk: '🍂 Nắm tay đi tới vạch Đích, né lá rơi',
   tug: '💪 Thấy "DÔ!" thì cả hai cùng bấm ✋',
+  umbrella: '☂️ Người không cầm ô đứng sát dưới ô mà đi',
+  sap: '🎋 Sạp khép "cạch!" thì cả hai cùng bấm ✋ để nhảy',
+};
+// Mẹo thêm khi có bẫy ở độ khó hiện tại
+const HOWTO_TRAP = {
+  statue: (q) => q.fakeChance && '🤪 Cây có thể hô thiếu "ba" rồi quay luôn!',
+  tug: (q) => q.fakeChance && '🤪 Cẩn thận "DỐ!" giả, đừng bấm!',
+  umbrella: (q) => q.windMax && '🌬️ Gió làm ô nghiêng, đứng lệch theo ô nhé',
+  sap: (q) => q.breakChance && '🤪 Có lúc sạp khép sớm, nhìn dải nhịp nhé',
 };
 const START_ZONE = 90;
 
@@ -83,10 +92,11 @@ export function drawHowTo(ctx, q, view, me, partner, holding) {
   const atLine = (p) => p && Math.abs(p.x - q.startX) <= START_ZONE;
   const steps = [
     [holding, '🤝 Nắm tay nhau (nút 🤝 hoặc phím H)'],
-    [atLine(me) && atLine(partner), '📍 Cả hai đứng ở vạch xuất phát'],
+    [atLine(me) && atLine(partner), q.type === 'sap' ? '📍 Cả hai đứng giữa sạp' : '📍 Cả hai đứng ở vạch xuất phát'],
     [null, HOWTO_LAST[q.type]],
   ];
-  if (q.fakeChance) steps.push([null, q.type === 'tug' ? '🤪 Cẩn thận "DỐ!" giả, đừng bấm!' : '🤪 Cây có thể hô thiếu "ba" rồi quay luôn!']);
+  const trap = HOWTO_TRAP[q.type]?.(q);
+  if (trap) steps.push([null, trap]);
   // Màn hình thấp (máy tính): bảng nhỏ gọn, nằm dưới chỗ thông báo để không bị che
   const tall = view.h > 700;
   const row = tall ? 20 : 15;

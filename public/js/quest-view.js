@@ -86,6 +86,12 @@ export function targetMarks(q, state, isSeer) {
     case 'memory': return state.items.filter((it) => it.state === 'down').map((it) => ({ x: it.x, icon: '🃏' }));
     case 'tug': return [{ x: q.startX, icon: '💪' }];
     case 'photo': return [{ x: q.frameX, icon: '📸' }];
+    case 'fishing': return [{ x: q.fishX, icon: '🎣' }];
+    case 'together': return q.posts.map((x) => ({ x, icon: '🪧' }));
+    case 'umbrella': return [{ x: q.startX, icon: '☂️' }];
+    case 'stack': return [{ x: q.pileX, icon: '🪨' }];
+    case 'sap': return [{ x: q.startX, icon: '🎋' }];
+    case 'lock': return [{ x: q.lockX, icon: '🔒' }];
     default: return [];
   }
 }

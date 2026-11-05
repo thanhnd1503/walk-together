@@ -2,6 +2,7 @@
 import { GENDERS, LOOK_OPTIONS, WALK_SPEED, HOLD_DISTANCE, sanitizeLook } from '../shared/constants.js';
 import { INTERACT_RADIUS, describePlank, findPlank, tieNeedle, questOf } from '../shared/quests.js';
 import { folkAction, folkOnChat, folkOnHumanInteract, folkTarget } from './bot-folk.js';
+import { bridgeAction, bridgeOnChat, bridgeOnHumanInteract, bridgeTarget } from './bot-bridge.js';
 
 const FOLLOW_GAP = 70;
 const SPLIT_RANGE = 250; // người chơi tới gần mục tiêu trong khoảng này thì bot tách ra chỗ còn lại
@@ -45,7 +46,7 @@ function otherTarget(q, human) {
 function targetX(room, bot, human, now) {
   const p = room.progress;
   const q = questOf(p);
-  const folk = folkTarget(room, bot, human, now);
+  const folk = folkTarget(room, bot, human, now) ?? bridgeTarget(room, bot, human, now);
   if (folk !== null) return folk;
   if (q?.type === 'sync' || q?.type === 'plates' || q?.type === 'tie') {
     const near = q.targets.some((t) => Math.abs(t.x - human.x) <= SPLIT_RANGE);
@@ -91,6 +92,7 @@ export function onHumanInteract(room, now, targetId) {
   if (q?.type === 'carry' && !room.progress.plank.carriers) bot.pendingPress = { targetId: 'plank', at: now + PRESS_DELAY_MS };
   if (q?.type === 'photo') bot.pendingPress = { targetId: 'photo', at: now + PRESS_DELAY_MS };
   folkOnHumanInteract(room, bot, now, targetId);
+  bridgeOnHumanInteract(room, bot, now, targetId);
 }
 
 // Bỏ dấu tiếng Việt để so từ khoá: "Đèn lồng" -> "den long"
@@ -101,7 +103,7 @@ export function onHumanChat(room, text) {
   const bot = botOf(room);
   const p = room.progress;
   const q = questOf(p);
-  const folkReply = bot && folkOnChat(room, bot, text);
+  const folkReply = bot && (folkOnChat(room, bot, text) ?? bridgeOnChat(room, bot, text));
   if (folkReply) return folkReply;
   if (bot && q?.type === 'cadao' && p.seerId && p.seerId !== bot.id) {
     // Tìm chữ trên đèn lồng (chưa sáng) có trong tin nhắn
@@ -220,7 +222,7 @@ export function tickBot(room, dt, now, maxX) {
     const q = questOf(room.progress);
     const isPlank = pp.targetId === 'plank';
     const isPhoto = pp.targetId === 'photo';
-    const anywhere = pp.targetId === 'pull'; // kéo co: bấm tại chỗ
+    const anywhere = ['pull', 'lock'].includes(pp.targetId); // kéo co / giật cần / khoá: bấm tại chỗ, server tự kiểm tra
     const target = anywhere ? bot : isPlank ? room.progress.plank : isPhoto ? { x: q.frameX } : q?.targets?.find((t) => t.id === pp.targetId);
     const reach = anywhere ? Infinity : isPlank ? q?.reach : isPhoto ? q.frameHalf : INTERACT_RADIUS;
     if (target && Math.abs(bot.x - target.x) <= reach) {
@@ -233,6 +235,7 @@ export function tickBot(room, dt, now, maxX) {
   const type = questOf(room.progress)?.type;
   const actions = {
     tie: tieAction, cadao: cadaoAction, blueprint: blueprintAction, blindGoat: folkAction, nemcon: folkAction, memory: folkAction,
+    fishing: bridgeAction, together: bridgeAction, stack: bridgeAction, sap: bridgeAction, lock: bridgeAction,
   };
   const action = press || !actions[type] ? {} : actions[type](room, bot, human, now);
   return { moved: before !== `${bot.x}|${bot.dir}|${bot.walking}`, press: press ?? action.press, say: action.say };

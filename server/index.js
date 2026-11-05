@@ -11,7 +11,7 @@ import {
   roomMaxX,
 } from './rooms.js';
 import {
-  handleCollect, handleInteract, checkPositions, publicQuest, savedQuest, tickQuest,
+  handleCollect, handleInteract, checkPositions, publicQuest, savedQuest, tickQuest, chatBlocked,
 } from './quests.js';
 import { addPhoto, saveProgress } from './storage.js';
 import { botOf, onHumanChat, onHumanInteract, tickBot } from './bot.js';
@@ -116,6 +116,11 @@ io.on('connection', (socket) => {
     const text = String(data?.text ?? '').trim().slice(0, CHAT_MAX);
     if (!text) return;
     lastChatAt = now;
+    // Thử thách "Tâm đầu ý hợp": đang chọn thì không được nhắn cho nhau
+    if (chatBlocked(room.progress)) {
+      socket.emit(EVENTS.FX, { type: 'noChat', by: socket.id });
+      return;
+    }
     io.to(roomCode).emit(EVENTS.CHAT, { id: socket.id, text });
     const bot = room.solo && botOf(room);
     if (bot) {

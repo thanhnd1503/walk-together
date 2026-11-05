@@ -2,10 +2,11 @@
 import { PALETTE } from '../palette.js';
 import { circle, heart, roundRect, seeded, signpost } from '../draw.js';
 import { BARRIERS, QUESTS, SCENES, isDone } from '/shared/quests.js';
+import { drawBridgeFar } from './bridge-far.js';
 
 const SCENE = SCENES[1];
 const BRIDGE_BARRIER = BARRIERS[1];
-const END_BARRIER = BARRIERS[2];
+const END_BARRIER = BARRIERS.at(-1);
 const S = SCENE.start; // toạ độ trong cảnh tính từ đầu cảnh
 export const STREAM = [S + 850, S + 1150];
 const GAP = [S + 930, S + 1070]; // đoạn cầu bị gãy
@@ -13,7 +14,8 @@ const BLUEPRINT = QUESTS.find((q) => q.type === 'blueprint');
 const LOCK_COLORS = ['#FF8FAB', '#F7C948', '#A2D2FF', '#CDB4DB', '#F28B82'];
 
 const bamboos = [];
-for (let x = SCENE.start + 80; x < END_BARRIER.x - 40; x += 230) {
+// Rặng tre ở bờ bên này; bờ bên kia là liễu rủ (bridge-far.js)
+for (let x = SCENE.start + 80; x < STREAM[0] - 40; x += 230) {
   const jx = x + (seeded(x) - 0.5) * 60;
   if (jx > STREAM[0] - 60 && jx < STREAM[1] + 60) continue;
   bamboos.push({ x: jx, n: 3 + Math.floor(seeded(x + 3) * 3) });
@@ -51,7 +53,7 @@ function bambooCluster(ctx, x, groundY, n, t) {
   }
 }
 
-function stream(ctx, groundY, t) {
+function stream(ctx, groundY, t, fishing) {
   const [x0, x1] = STREAM;
   ctx.fillStyle = PALETTE.water;
   ctx.fillRect(x0, groundY - 14, x1 - x0, 2000);
@@ -92,7 +94,8 @@ function stream(ctx, groundY, t) {
       ctx.restore();
     }
   }
-  // Cá koi bơi qua lại
+  // Cá koi bơi qua lại (lúc câu cá thì ẩn, để người nhìn nước khỏi nhầm với cá đang cắn câu)
+  if (fishing) return drawStreamStones(ctx, x0, x1, groundY);
   const k = (Math.sin(t * 0.5) + 1) / 2;
   const kx = x0 + 40 + k * (x1 - x0 - 80);
   const dir = Math.cos(t * 0.5) >= 0 ? 1 : -1;
@@ -105,7 +108,11 @@ function stream(ctx, groundY, t) {
   ctx.fillStyle = PALETTE.koi;
   ctx.fill();
   ctx.stroke();
-  // Đá bờ suối
+  drawStreamStones(ctx, x0, x1, groundY);
+}
+
+// Đá bờ suối
+function drawStreamStones(ctx, x0, x1, groundY) {
   for (const sx of [x0 - 4, x1 + 4]) {
     circle(ctx, sx, groundY + 20, 9, PALETTE.inkSoft, PALETTE.ink, 2);
     circle(ctx, sx, groundY + 44, 7, PALETTE.inkSoft, PALETTE.ink, 2);
@@ -241,6 +248,7 @@ const visible = (x, left, right, pad = 80) => x > left - pad && x < right + pad;
 
 export function drawBridgeScene(ctx, groundY, left, right, questIndex, t) {
   if (right < SCENE.start || left > SCENE.end) return;
+  drawBridgeFar(ctx, groundY, left, right, questIndex, t);
   for (const b of bamboos) {
     if (visible(b.x, left, right)) bambooCluster(ctx, b.x, groundY - 18, b.n, t);
   }
@@ -251,7 +259,7 @@ export function drawBridgeScene(ctx, groundY, left, right, questIndex, t) {
   if (visible(BLUEPRINT.boardX, left, right)) board(ctx, BLUEPRINT.boardX, groundY - 14);
 
   if (right > STREAM[0] - 20 && left < STREAM[1] + 20) {
-    stream(ctx, groundY, t);
+    stream(ctx, groundY, t, QUESTS[questIndex]?.type === 'fishing');
     const stage = isDone(questIndex, BRIDGE_BARRIER.after) ? 'fixed' : isDone(questIndex, 'carry') ? 'laid' : 'broken';
     bridge(ctx, groundY, stage);
     // Biển tên cầu
