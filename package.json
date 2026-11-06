@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch server/index.js",
     "start": "node server/index.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "share": "node scripts/share.js"
   },
   "dependencies": {
     "express": "^5.3.0",

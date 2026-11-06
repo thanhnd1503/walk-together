@@ -94,6 +94,7 @@ npm run dev          # Chạy server có tự reload (node --watch), mở http:/
 npm start            # Chạy production
 PORT=3457 npm run dev  # Đổi cổng nếu 3456 bị trùng (cổng 3000 đã bị Docker của dự án khác dùng)
 npm run check        # Kiểm tra cú pháp toàn bộ file JS (node --check)
+npm run share        # Chạy server + Cloudflare Tunnel, in ra link https gửi người ấy (cần cloudflared trong PATH)
 ```
 
 ## 5. Kiến trúc mạng
@@ -189,7 +190,11 @@ Làm **theo thứ tự**, xong và kiểm tra giai đoạn trước mới sang g
   - Thử thách Cầu Tình Yêu (`server/bot-bridge.js`): câu cá — bot nhìn nước thì hô khi koi cắn, bot cầm cần thì giật khi được hô; tâm đầu ý hợp — bot chọn giống người chơi ~70%; chung ô — bot đứng dưới tâm ô theo gió; xếp đá — bot giữ đá khi người chơi thả, tự canh thả khi tới lượt; nhảy sạp — bot tự nhảy đúng nhịp; khoá — bot nhắn mã ô của người chơi, hiểu tin nhắn "tim, trăng" (từ khoá `words` trong `symbols`) để xoay ô của mình.
 - **Giai đoạn 2 (Không khí)**: đủ 5 cảnh của Đồi Mây Ước, parallax, trời theo giờ thật, emote, đồng hồ "đã đi cùng nhau X phút", nhạc nền (có nút tắt).
 - **Giai đoạn 3 (Kỷ niệm)**: nhặt và tặng quà, ngồi ghế đá, lời nhắn để lại trên đường, chuỗi ngày (streak), lưu dữ liệu.
-- **Giai đoạn 4 (Deploy)**: đưa lên mạng, có link gửi cho người ấy.
+- **Giai đoạn 4 (Deploy)** ✅ (miễn phí, chạy trên máy người dùng)
+  - [x] `npm run share` (`scripts/share.js`): chạy `server/index.js` + `cloudflared tunnel --url` (quick tunnel, không cần tài khoản), in link `https://….trycloudflare.com`. Ctrl+C tắt cả hai.
+  - Link **đổi mỗi lần chạy lại**; máy phải bật và cửa sổ phải mở thì người ấy mới vào được. Dữ liệu vẫn ở `data/` trên máy.
+  - `cloudflared` cài ở `~/.local/bin` (tải bản chính thức từ GitHub cloudflare/cloudflared).
+  - Muốn link cố định: cần tài khoản Cloudflare + tên miền riêng (named tunnel) — hỏi người dùng trước.
 
 Cập nhật các ô `[ ]` → `[x]` trong file này khi hoàn thành.
 
